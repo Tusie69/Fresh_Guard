@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+    <style>
+    .freshness-status {
+        font-weight: bold;
+    }
+
+    .status-fresh {
+        color: green;
+    }
+
+    .status-use-soon {
+        color: orange;
+    }
+
+    .status-check-food {
+        color: red;
+    }
+</style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>FreshGuard Dashboard</title>
+</head>
+
+<body>
+
+    <h1>FreshGuard</h1>
+
+    <section>
+        <h2>Current Environment</h2>
+
+        <p>
+            Temperature:
+            <span id="temperature">--</span> °C
+        </p>
+
+        <p>
+            Humidity:
+            <span id="humidity">--</span> %
+        </p>
+
+        <p>
+            Gas:
+            <span id="gas">--</span>
+        </p>
+
+        <p>
+            Door:
+            <span id="door">--</span>
+        </p>
+    </section>
+
+    <section>
+        <h2>Freshness Status</h2>
+
+        <p>
+            Status:
+                <span id="freshness-status" class="freshness-status">--</span>
+
+        </p>
+
+        <p>
+            Reason:
+            <span id="freshness-reason">--</span>
+        </p>
+    </section>
+    <section>
+    <h2>Reading History</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Temperature</th>
+                <th>Humidity</th>
+                <th>Gas</th>
+                <th>Door</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+
+        <tbody id="reading-history">
+        </tbody>
+    </table>
+</section>
+<script>
+    async function loadReadings() {
+        try {
+            const response = await fetch(
+                "http://127.0.0.1:5000/api/v1/readings?limit=20"
+            );
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.message || "Failed to load data");
+            }
+
+            const data = result.data[0];
+
+            const historyBody = document.getElementById("reading-history");
+
+    historyBody.innerHTML = "";
+
+    result.data.forEach(reading => {
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${new Date(reading.timestamp).toLocaleString("vi-VN")}</td>
+            <td>${reading.temperature_c ?? "--"} °C</td>
+            <td>${reading.humidity_pct ?? "--"} %</td>
+            <td>${reading.gas_raw ?? "--"}</td>
+            <td>${reading.door_open ? "Open" : "Closed"}</td>
+            <td>${reading.freshness?.status ?? "--"}</td>
+        `;
+
+        historyBody.appendChild(row);
+    });
+
+            document.getElementById("temperature").textContent =
+                data.temperature_c ?? "--";
+
+            document.getElementById("humidity").textContent =
+                data.humidity_pct ?? "--";
+
+            document.getElementById("gas").textContent =
+                data.gas_raw ?? "--";
+
+            document.getElementById("door").textContent =
+                data.door_open ? "Open" : "Closed";
+
+            const freshnessStatus =
+            document.getElementById("freshness-status");
+
+            const status = data.freshness?.status ?? "--";
+
+            freshnessStatus.textContent = status;
+
+            freshnessStatus.className = "freshness-status";
+
+            if (status === "Fresh / Normal") {
+                freshnessStatus.classList.add("status-fresh");
+            } else if (status === "Use Soon") {
+                freshnessStatus.classList.add("status-use-soon");
+            } else if (status === "Check Food") {
+                freshnessStatus.classList.add("status-check-food");
+            }
+
+            document.getElementById("freshness-reason").textContent =
+                data.freshness?.reason ?? "--";
+
+        } catch (error) {
+            console.error("Failed to load sensor data:", error);
+        }
+    }
+
+    loadReadings();
+
+    setInterval(loadReadings, 2000);
+</script>
+</body>
+</html>

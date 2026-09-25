@@ -1,164 +1,441 @@
 <!DOCTYPE html>
 <html lang="en">
-    <style>
-    .freshness-status {
-        font-weight: bold;
-    }
-
-    .status-fresh {
-        color: green;
-    }
-
-    .status-use-soon {
-        color: orange;
-    }
-
-    .status-check-food {
-        color: red;
-    }
-</style>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>FreshGuard Dashboard</title>
-</head>
-
-<body>
-
-    <h1>FreshGuard</h1>
-
-    <section>
-        <h2>Current Environment</h2>
-
-        <p>
-            Temperature:
-            <span id="temperature">--</span> °C
-        </p>
-
-        <p>
-            Humidity:
-            <span id="humidity">--</span> %
-        </p>
-
-        <p>
-            Gas:
-            <span id="gas">--</span>
-        </p>
-
-        <p>
-            Door:
-            <span id="door">--</span>
-        </p>
-    </section>
-
-    <section>
-        <h2>Freshness Status</h2>
-
-        <p>
-            Status:
-                <span id="freshness-status" class="freshness-status">--</span>
-
-        </p>
-
-        <p>
-            Reason:
-            <span id="freshness-reason">--</span>
-        </p>
-    </section>
-    <section>
-    <h2>Reading History</h2>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Time</th>
-                <th>Temperature</th>
-                <th>Humidity</th>
-                <th>Gas</th>
-                <th>Door</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-
-        <tbody id="reading-history">
-        </tbody>
-    </table>
-</section>
-<script>
-    async function loadReadings() {
-        try {
-            const response = await fetch(
-                "http://127.0.0.1:5000/api/v1/readings?limit=20"
-            );
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.message || "Failed to load data");
-            }
-
-            const data = result.data[0];
-
-            const historyBody = document.getElementById("reading-history");
-
-    historyBody.innerHTML = "";
-
-    result.data.forEach(reading => {
-        const row = document.createElement("tr");
-
-        row.innerHTML = `
-            <td>${new Date(reading.timestamp).toLocaleString("vi-VN")}</td>
-            <td>${reading.temperature_c ?? "--"} °C</td>
-            <td>${reading.humidity_pct ?? "--"} %</td>
-            <td>${reading.gas_raw ?? "--"}</td>
-            <td>${reading.door_open ? "Open" : "Closed"}</td>
-            <td>${reading.freshness?.status ?? "--"}</td>
-        `;
-
-        historyBody.appendChild(row);
-    });
-
-            document.getElementById("temperature").textContent =
-                data.temperature_c ?? "--";
-
-            document.getElementById("humidity").textContent =
-                data.humidity_pct ?? "--";
-
-            document.getElementById("gas").textContent =
-                data.gas_raw ?? "--";
-
-            document.getElementById("door").textContent =
-                data.door_open ? "Open" : "Closed";
-
-            const freshnessStatus =
-            document.getElementById("freshness-status");
-
-            const status = data.freshness?.status ?? "--";
-
-            freshnessStatus.textContent = status;
-
-            freshnessStatus.className = "freshness-status";
-
-            if (status === "Fresh / Normal") {
-                freshnessStatus.classList.add("status-fresh");
-            } else if (status === "Use Soon") {
-                freshnessStatus.classList.add("status-use-soon");
-            } else if (status === "Check Food") {
-                freshnessStatus.classList.add("status-check-food");
-            }
-
-            document.getElementById("freshness-reason").textContent =
-                data.freshness?.reason ?? "--";
-
-        } catch (error) {
-            console.error("Failed to load sensor data:", error);
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #18312b;
+            background: #f3f7f5;
         }
-    }
 
-    loadReadings();
+        * { box-sizing: border-box; }
 
-    setInterval(loadReadings, 2000);
-</script>
+        body {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 28px 20px 48px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        h1 { margin: 0; color: #176b52; }
+        h2 { margin: 0 0 18px; font-size: 1.1rem; }
+
+        .connection {
+            color: #52665f;
+            text-align: right;
+            font-size: .9rem;
+        }
+
+        .connection p { margin: 3px 0; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+
+        section {
+            min-width: 0;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #dce7e2;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgb(20 60 45 / 5%);
+        }
+
+        .wide { grid-column: 1 / -1; }
+        .sensor-grid, .food-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+
+        .metric, .food-field {
+            padding: 12px;
+            background: #f7faf8;
+            border-radius: 8px;
+        }
+
+        .label { display: block; margin-bottom: 5px; color: #61736c; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+        .value { font-size: 1.1rem; font-weight: 600; overflow-wrap: anywhere; }
+        .sensor-value { font-size: 1.35rem; }
+
+        .freshness-status { display: inline-block; font-size: 1.5rem; font-weight: 700; }
+        .status-fresh { color: #167447; }
+        .status-use-soon { color: #9a6500; }
+        .status-check-food { color: #b42318; }
+        .status-unavailable { color: #65736e; }
+
+        .freshness-reason { margin: 10px 0 0; line-height: 1.5; }
+        .alert-panel { border-left: 4px solid #91a39b; }
+        .alert-panel.is-alert { border-left-color: #d97706; background: #fffaf0; }
+        .alert-panel.is-critical { border-left-color: #c83225; background: #fff7f6; }
+        .alert-heading { margin: 0 0 8px; font-size: .8rem; font-weight: 700; letter-spacing: .06em; }
+
+        #data-message {
+            margin: 0 0 18px;
+            padding: 13px 16px;
+            color: #173c31;
+            background: #e8f2ed;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        #data-message.error { color: #8d2018; background: #fff0ee; }
+        #food-state { margin: 0 0 12px; color: #61736c; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 8px; border-bottom: 1px solid #e5ece8; text-align: left; white-space: nowrap; }
+        th { color: #52665f; font-size: .78rem; text-transform: uppercase; }
+        td { font-size: .9rem; }
+        .table-wrap { overflow-x: auto; }
+
+        @media (max-width: 680px) {
+            body { padding: 20px 14px 36px; }
+            header { align-items: flex-start; flex-direction: column; }
+            .connection { text-align: left; }
+            .grid { grid-template-columns: 1fr; }
+            .wide { grid-column: auto; }
+            section { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <h1>FreshGuard</h1>
+            <p style="margin: 5px 0 0; color: #61736c;">Food and environment monitoring</p>
+        </div>
+        <div class="connection" aria-live="polite">
+            <p id="connection-state">Loading...</p>
+            <p id="last-updated"></p>
+        </div>
+    </header>
+
+    <p id="data-message" role="status" hidden></p>
+
+    <main class="grid">
+        <section>
+            <h2>Current Environment</h2>
+            <div class="sensor-grid">
+                <div class="metric"><span class="label">Temperature</span><span class="value sensor-value" id="temperature">Data Unavailable</span></div>
+                <div class="metric"><span class="label">Humidity</span><span class="value sensor-value" id="humidity">Data Unavailable</span></div>
+                <div class="metric"><span class="label">Gas</span><span class="value sensor-value" id="gas">Data Unavailable</span></div>
+                <div class="metric"><span class="label">Door</span><span class="value sensor-value" id="door">Data Unavailable</span></div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Freshness</h2>
+            <span id="freshness-status" class="freshness-status status-unavailable">Data Unavailable</span>
+            <p id="freshness-reason" class="freshness-reason">N/A</p>
+        </section>
+
+        <section>
+            <h2>Food Information</h2>
+            <p id="food-state">Loading...</p>
+            <div class="food-grid">
+                <div class="food-field"><span class="label">Food Name</span><span class="value" id="food-name">N/A</span></div>
+                <div class="food-field"><span class="label">Category</span><span class="value" id="food-category">N/A</span></div>
+                <div class="food-field"><span class="label">Quantity</span><span class="value" id="food-quantity">N/A</span></div>
+                <div class="food-field"><span class="label">Storage Location</span><span class="value" id="food-location">N/A</span></div>
+                <div class="food-field"><span class="label">Inserted At</span><span class="value" id="food-inserted">N/A</span></div>
+                <div class="food-field"><span class="label">Manufacture Date</span><span class="value" id="food-manufacture">N/A</span></div>
+                <div class="food-field"><span class="label">Expiry Date</span><span class="value" id="food-expiry">N/A</span></div>
+                <div class="food-field"><span class="label">Food ID</span><span class="value" id="food-id">N/A</span></div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Storage</h2>
+            <p><strong>Stored:</strong> <span id="storage-inserted">N/A</span></p>
+            <p><strong>Expiry:</strong> <span id="storage-expiry">N/A</span></p>
+        </section>
+
+        <section class="alert-panel wide" id="alert-panel" aria-live="polite">
+            <p class="alert-heading" id="alert-heading">STATUS DETAILS</p>
+            <p id="alert-reason" style="margin: 0;">N/A</p>
+        </section>
+
+        <section class="wide">
+            <h2>Reading History</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th><th>Food</th><th>Temperature</th><th>Humidity</th><th>Gas</th><th>Door</th><th>Freshness</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reading-history"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API_BASE_URL = "http://127.0.0.1:5000/api/v1";
+        const UNAVAILABLE = "Data Unavailable";
+        let refreshInProgress = false;
+        let hasLoadedData = false;
+
+        function byId(id) {
+            return document.getElementById(id);
+        }
+
+        function formatNullable(value, suffix = "") {
+            if (value === null || value === undefined || value === "") {
+                return UNAVAILABLE;
+            }
+            return `${value}${suffix}`;
+        }
+
+        function formatFoodField(value) {
+            return value === null || value === undefined || value === "" ? "N/A" : String(value);
+        }
+
+        function getFreshnessClass(status) {
+            if (status === "Fresh / Normal") return "freshness-status status-fresh";
+            if (status === "Use Soon") return "freshness-status status-use-soon";
+            if (status === "Check Food") return "freshness-status status-check-food";
+            return "freshness-status status-unavailable";
+        }
+
+        function setFoodFields(food) {
+            byId("food-name").textContent = formatFoodField(food?.food_name);
+            byId("food-category").textContent = formatFoodField(food?.category);
+            byId("food-quantity").textContent = formatFoodField(food?.quantity);
+            byId("food-location").textContent = formatFoodField(food?.storage_location);
+            byId("food-inserted").textContent = formatFoodField(food?.inserted_at);
+            byId("food-manufacture").textContent = formatFoodField(food?.manufacture_date);
+            byId("food-expiry").textContent = formatFoodField(food?.expiry_date);
+            byId("food-id").textContent = formatFoodField(food?.food_id);
+            byId("storage-inserted").textContent = formatFoodField(food?.inserted_at);
+            byId("storage-expiry").textContent = formatFoodField(food?.expiry_date);
+        }
+
+        function setUnavailableData() {
+            byId("temperature").textContent = UNAVAILABLE;
+            byId("humidity").textContent = UNAVAILABLE;
+            byId("gas").textContent = UNAVAILABLE;
+            byId("door").textContent = UNAVAILABLE;
+            byId("freshness-status").textContent = UNAVAILABLE;
+            byId("freshness-status").className = getFreshnessClass(null);
+            byId("freshness-reason").textContent = "N/A";
+            byId("alert-reason").textContent = "N/A";
+            byId("alert-panel").className = "alert-panel wide";
+            setFoodFields(null);
+        }
+
+        function showMessage(message, isError = false) {
+            const element = byId("data-message");
+            element.textContent = message;
+            element.className = isError ? "error" : "";
+            element.hidden = false;
+        }
+
+        function hideMessage() {
+            byId("data-message").hidden = true;
+        }
+
+        function addCell(row, value) {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.appendChild(cell);
+        }
+
+        function renderHistory(readings) {
+            const body = byId("reading-history");
+            body.replaceChildren();
+
+            if (!Array.isArray(readings) || readings.length === 0) {
+                const row = document.createElement("tr");
+                const cell = document.createElement("td");
+                cell.colSpan = 7;
+                cell.textContent = "No readings available";
+                row.appendChild(cell);
+                body.appendChild(row);
+                return;
+            }
+
+            readings.forEach(reading => {
+                const row = document.createElement("tr");
+                const timestamp = reading.timestamp ? new Date(reading.timestamp) : null;
+                const shownTime = timestamp && !Number.isNaN(timestamp.getTime())
+                    ? timestamp.toLocaleString("vi-VN")
+                    : formatNullable(reading.timestamp);
+                addCell(row, shownTime);
+                addCell(row, formatNullable(reading.food_id));
+                addCell(row, formatNullable(reading.temperature_c, " °C"));
+                addCell(row, formatNullable(reading.humidity_pct, " %"));
+                addCell(row, formatNullable(reading.gas_raw));
+                addCell(row, typeof reading.door_open === "boolean"
+                    ? (reading.door_open ? "OPEN" : "CLOSED")
+                    : UNAVAILABLE);
+                addCell(row, formatNullable(reading.freshness?.status));
+                body.appendChild(row);
+            });
+        }
+
+        function renderReading(reading) {
+            byId("temperature").textContent = formatNullable(reading.temperature_c, " °C");
+            byId("humidity").textContent = formatNullable(reading.humidity_pct, " %");
+            byId("gas").textContent = formatNullable(reading.gas_raw);
+            byId("door").textContent = typeof reading.door_open === "boolean"
+                ? (reading.door_open ? "OPEN" : "CLOSED")
+                : UNAVAILABLE;
+
+            const freshness = reading.freshness;
+            const status = freshness?.status;
+            const reason = freshness?.reason;
+            byId("freshness-status").textContent = formatNullable(status);
+            byId("freshness-status").className = getFreshnessClass(status);
+            byId("freshness-reason").textContent = formatNullable(reason);
+            byId("alert-reason").textContent = formatNullable(reason);
+
+            const panel = byId("alert-panel");
+            panel.className = "alert-panel wide";
+            if (status === "Use Soon") {
+                panel.classList.add("is-alert");
+                byId("alert-heading").textContent = "ACTIVE ALERT";
+            } else if (status === "Check Food") {
+                panel.classList.add("is-critical");
+                byId("alert-heading").textContent = "CHECK FOOD";
+            } else {
+                byId("alert-heading").textContent = "STATUS DETAILS";
+            }
+        }
+
+        async function loadFood(foodId) {
+            if (!foodId) {
+                byId("food-state").textContent = "No food linked";
+                setFoodFields(null);
+                return;
+            }
+
+            byId("food-state").textContent = "Loading food information...";
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/foods/${encodeURIComponent(foodId)}`
+                );
+                const result = await response.json();
+                if (!response.ok || !result.success || !result.food) {
+                    throw new Error("Food information unavailable");
+                }
+                setFoodFields(result.food);
+                byId("food-state").textContent = "Food linked to this reading";
+            } catch (error) {
+                setFoodFields(null);
+                byId("food-state").textContent = "Food information unavailable";
+                console.error("Failed to load food information:", error);
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/readings?limit=20`);
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error("Unable to load history");
+                }
+                renderHistory(result.data);
+            } catch (error) {
+                renderHistory([]);
+                const cell = byId("reading-history").querySelector("td");
+                if (cell) cell.textContent = "Unable to load history";
+                console.error("Failed to load reading history:", error);
+            }
+        }
+
+        function renderNoData() {
+            setUnavailableData();
+            byId("food-state").textContent = "No reading available";
+            showMessage("NO DATA — Waiting for sensor readings...");
+            renderHistory([]);
+        }
+
+        function renderLoadError(message) {
+            setUnavailableData();
+            byId("food-state").textContent = "Food information unavailable";
+            showMessage(message, true);
+            renderHistory([]);
+            const cell = byId("reading-history").querySelector("td");
+            if (cell) cell.textContent = message;
+        }
+
+        async function loadDashboard() {
+            if (refreshInProgress) return;
+            refreshInProgress = true;
+            byId("connection-state").textContent = hasLoadedData ? "Refreshing..." : "Loading...";
+
+            try {
+                let response;
+                try {
+                    response = await fetch(`${API_BASE_URL}/readings/latest`);
+                } catch (error) {
+                    renderLoadError("Backend unavailable");
+                    byId("connection-state").textContent = "Backend unavailable";
+                    hasLoadedData = false;
+                    return;
+                }
+
+                let result;
+                try {
+                    result = await response.json();
+                } catch (error) {
+                    renderLoadError("Unable to load data");
+                    byId("connection-state").textContent = "Unable to load data";
+                    hasLoadedData = false;
+                    return;
+                }
+
+                if (response.status === 404 && result.error === "NO_DATA") {
+                    renderNoData();
+                    byId("connection-state").textContent = "Connected";
+                    byId("last-updated").textContent = "";
+                    hasLoadedData = false;
+                    return;
+                }
+
+                if (response.ok && result.success && result.data == null) {
+                    renderNoData();
+                    byId("connection-state").textContent = "Connected";
+                    byId("last-updated").textContent = "";
+                    hasLoadedData = false;
+                    return;
+                }
+
+                if (!response.ok || !result.success || !result.data) {
+                    renderLoadError("Unable to load data");
+                    byId("connection-state").textContent = "Unable to load data";
+                    hasLoadedData = false;
+                    return;
+                }
+
+                hideMessage();
+                const reading = result.data;
+                renderReading(reading);
+                await Promise.all([
+                    loadFood(reading.food_id),
+                    loadHistory(),
+                ]);
+
+                hasLoadedData = true;
+                byId("connection-state").textContent = "Connected";
+                byId("last-updated").textContent = `Last updated: ${new Date().toLocaleTimeString("vi-VN")}`;
+            } catch (error) {
+                renderLoadError("Unable to load data");
+                byId("connection-state").textContent = "Unable to load data";
+                hasLoadedData = false;
+                console.error("Failed to load dashboard data:", error);
+            } finally {
+                refreshInProgress = false;
+            }
+        }
+
+        loadDashboard();
+        setInterval(loadDashboard, 2000);
+    </script>
 </body>
 </html>

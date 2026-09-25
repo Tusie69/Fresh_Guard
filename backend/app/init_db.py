@@ -13,7 +13,59 @@ def init_db():
             humidity_pct REAL,
             gas_raw INTEGER,
             door_open INTEGER NOT NULL,
+            open_duration_seconds INTEGER NOT NULL DEFAULT 0,
+            food_id TEXT NULL,
+            device_reading_id TEXT NULL,
+            freshness_status TEXT NULL,
+            freshness_reason TEXT NULL,
+            freshness_evaluated_at TEXT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Upgrade databases created before open_duration_seconds was added.
+    reading_columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(sensor_readings)")
+    }
+    if "open_duration_seconds" not in reading_columns:
+        connection.execute(
+            "ALTER TABLE sensor_readings "
+            "ADD COLUMN open_duration_seconds INTEGER NOT NULL DEFAULT 0"
+        )
+    if "food_id" not in reading_columns:
+        connection.execute(
+            "ALTER TABLE sensor_readings ADD COLUMN food_id TEXT NULL"
+        )
+    for column, declaration in (
+        ("device_reading_id", "TEXT NULL"),
+        ("freshness_status", "TEXT NULL"),
+        ("freshness_reason", "TEXT NULL"),
+        ("freshness_evaluated_at", "TEXT NULL"),
+    ):
+        if column not in reading_columns:
+            connection.execute(
+                f"ALTER TABLE sensor_readings ADD COLUMN {column} {declaration}"
+            )
+
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        "idx_sensor_readings_device_reading_id "
+        "ON sensor_readings (device_id, device_reading_id)"
+    )
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS food_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            food_id TEXT UNIQUE NOT NULL,
+            food_name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            quantity REAL,
+            inserted_at TEXT NOT NULL,
+            manufacture_date TEXT,
+            expiry_date TEXT,
+            storage_location TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """)
 

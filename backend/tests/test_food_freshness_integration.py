@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import date, timedelta
+import uuid
 
 import pytest
 
@@ -48,6 +49,7 @@ def register_food(client, food_id, category="MEAT", stored_days=0, expiry_days=1
 def post_reading(client, **overrides):
     reading = {
         "device_id": "FG-TEST-DEVICE",
+        "device_reading_id": str(uuid.uuid4()),
         "timestamp": "2026-09-25T12:00:00+07:00",
         "temperature_c": 5,
         "humidity_pct": 60,
@@ -116,26 +118,24 @@ def test_tc10_food_use_soon_and_fresh_temperature(api_client):
     assert "storage duration" in response.json["freshness"]["reason"].lower()
 
 
-def test_tc11_fresh_food_and_check_food_temperature(api_client):
+def test_tc11_temperature_without_exposure_does_not_change_fresh_status(api_client):
     register_food(api_client, "FG-AGG-11", stored_days=0, expiry_days=10)
 
     response = post_reading(api_client, food_id="FG-AGG-11", temperature_c=15)
 
-    assert response.json["freshness"]["status"] == "Check Food"
-    assert "temperature" in response.json["freshness"]["reason"].lower()
+    assert response.json["freshness"]["status"] == "Fresh / Normal"
 
 
-def test_tc12_check_food_temperature_wins_over_food_use_soon(api_client):
+def test_tc12_storage_use_soon_wins_when_temperature_exposure_is_not_provided(api_client):
     register_food(api_client, "FG-AGG-12", stored_days=2, expiry_days=10)
 
     response = post_reading(api_client, food_id="FG-AGG-12", temperature_c=15)
 
-    assert response.json["freshness"]["status"] == "Check Food"
-    assert "temperature" in response.json["freshness"]["reason"].lower()
+    assert response.json["freshness"]["status"] == "Use Soon"
     assert "storage duration" in response.json["freshness"]["reason"].lower()
 
 
-def test_storage_expiry_and_door_reasons_are_all_preserved(api_client):
+def test_short_door_open_warning_does_not_change_storage_or_expiry_result(api_client):
     register_food(api_client, "FG-MULTI", stored_days=2, expiry_days=1)
 
     response = post_reading(

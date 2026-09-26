@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import date, timedelta
+import uuid
 
 import pytest
 
@@ -44,6 +45,7 @@ def food_payload(**overrides):
 def reading_payload(**overrides):
     payload = {
         "device_id": "FG-ESP32-01",
+        "device_reading_id": str(uuid.uuid4()),
         "timestamp": "2026-09-25T12:00:00+07:00",
         "temperature_c": 5,
         "humidity_pct": 60,
@@ -61,6 +63,146 @@ def test_create_food_success(client):
     assert response.json["success"] is True
     assert response.json["food"]["food_id"] == "FG-FOOD-001"
     assert response.json["food"]["category"] == "DAIRY"
+
+
+@pytest.mark.parametrize(
+    ("qr_code", "expected_category"),
+    [
+        ("FG-MEAT", "MEAT"),
+        ("FG-DAIRY", "DAIRY"),
+        ("FG-VEGETABLE", "VEGETABLE"),
+        ("FG-FRUIT", "FRUIT"),
+        ("FG-COOKED", "COOKED_FOOD"),
+    ],
+)
+def test_create_food_maps_fixed_qr_to_category(client, qr_code, expected_category):
+    payload = food_payload(qr_code=qr_code)
+    payload.pop("category")
+    payload.pop("food_id")
+    response = client.post(
+        "/api/v1/foods",
+        json=payload,
+    )
+
+    assert response.status_code == 201
+    assert response.json["food"]["category"] == expected_category
+    assert response.json["food"]["food_id"] == "FG-FOOD-00001"
+    assert "qr_code" not in response.json["food"]
+
+
+def test_create_food_rejects_unknown_qr_without_saving(client):
+    payload = food_payload(qr_code="FG-UNKNOWN")
+    payload.pop("category")
+    payload.pop("food_id")
+    response = client.post(
+        "/api/v1/foods",
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert response.json["error"] == "INVALID_QR_CODE"
+    assert client.get("/api/v1/foods").json["data"] == []
+
+
+def test_create_food_rejects_qr_category_conflict_without_saving(client):
+    response = client.post(
+        "/api/v1/foods",
+        json=food_payload(food_id="QR-CONFLICT", qr_code="FG-MEAT", category="DAIRY"),
+    )
+
+    assert response.status_code == 400
+    assert response.json["error"] == "QR_CATEGORY_CONFLICT"
+    assert client.get("/api/v1/foods").json["data"] == []
+
+
+def test_create_food_trims_qr_whitespace_and_allows_matching_category(client):
+    response = client.post(
+        "/api/v1/foods",
+        json=food_payload(
+            food_id="QR-TRIMMED", qr_code="  FG-MEAT  ", category=" MEAT "
+        ),
+    )
+
+    assert response.status_code == 201
+    assert response.json["food"]["category"] == "MEAT"
+
+
+def test_qr_with_existing_food_id_derives_category_when_category_is_omitted(client):
+    payload = food_payload(food_id="EXISTING-FOOD-ID", qr_code="FG-DAIRY")
+    payload.pop("category")
+    response = client.post("/api/v1/foods", json=payload)
+
+    assert response.status_code == 201
+    assert response.json["food"]["food_id"] == "EXISTING-FOOD-ID"
+    assert response.json["food"]["category"] == "DAIRY"
+
+
+def test_qr_only_food_ids_are_unique_and_increment_from_sqlite_id(client):
+    first_payload = food_payload(qr_code="FG-MEAT")
+    second_payload = food_payload(qr_code="FG-FRUIT")
+    for payload in (first_payload, second_payload):
+        payload.pop("category")
+        payload.pop("food_id")
+
+    first = client.post("/api/v1/foods", json=first_payload)
+    second = client.post("/api/v1/foods", json=second_payload)
+
+    assert first.status_code == second.status_code == 201
+    assert first.json["food"]["food_id"] == "FG-FOOD-00001"
+    assert second.json["food"]["food_id"] == "FG-FOOD-00002"
+    assert first.json["food"]["food_id"] != second.json["food"]["food_id"]
+
+
+def test_qr_only_food_id_sequence_survives_database_reinitialization(client):
+    first_payload = food_payload(qr_code="FG-MEAT")
+    first_payload.pop("category")
+    first_payload.pop("food_id")
+    first = client.post("/api/v1/foods", json=first_payload)
+    assert first.json["food"]["food_id"] == "FG-FOOD-00001"
+
+    init_db_module.init_db()
+    restarted_client = create_app().test_client()
+    second_payload = food_payload(qr_code="FG-DAIRY")
+    second_payload.pop("category")
+    second_payload.pop("food_id")
+    second = restarted_client.post("/api/v1/foods", json=second_payload)
+
+    assert second.status_code == 201
+    assert second.json["food"]["food_id"] == "FG-FOOD-00002"
+
+
+def test_qr_only_food_id_skips_existing_legacy_identifier(client):
+    legacy = client.post(
+        "/api/v1/foods", json=food_payload(food_id="FG-FOOD-00002")
+    )
+    payload = food_payload(qr_code="FG-MEAT")
+    payload.pop("category")
+    payload.pop("food_id")
+
+    generated = client.post("/api/v1/foods", json=payload)
+
+    assert legacy.status_code == 201
+    assert generated.status_code == 201
+    assert generated.json["food"]["food_id"] == "FG-FOOD-00003"
+
+
+def test_food_without_id_or_qr_is_rejected(client):
+    payload = food_payload()
+    payload.pop("food_id")
+    response = client.post("/api/v1/foods", json=payload)
+
+    assert response.status_code == 400
+    assert "food_id" in response.json["fields"]
+
+
+def test_create_food_rejects_unsupported_category(client):
+    response = client.post(
+        "/api/v1/foods", json=food_payload(category="POULTRY")
+    )
+
+    assert response.status_code == 400
+    assert response.json["error"] == "INVALID_CATEGORY"
+    assert client.get("/api/v1/foods").json["data"] == []
 
 
 @pytest.mark.parametrize("missing_field", ["food_id", "food_name", "category", "inserted_at"])

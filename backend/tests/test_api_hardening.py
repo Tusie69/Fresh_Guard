@@ -4,12 +4,14 @@ from threading import Barrier
 import uuid
 
 import pytest
+import requests
 
 from app import create_app
 from app import init_db as init_db_module
 from app.routes import events as events_module
 from app.routes import readings as readings_module
 from app.services.reading_protocol import decode_compact_reading
+from firmware import simulator
 
 
 @pytest.fixture
@@ -34,6 +36,7 @@ def client(tmp_path, monkeypatch):
 def reading_payload(**overrides):
     payload = {
         "device_id": "FG-ESP32-01",
+        "device_reading_id": str(uuid.uuid4()),
         "timestamp": "2026-09-25T12:00:00+07:00",
         "temperature_c": 5,
         "humidity_pct": 60,
@@ -411,16 +414,14 @@ def test_idemp_007_concurrent_duplicate_requests_create_one_row(client):
     assert _reading_count() == 1
 
 
-def test_idemp_008_legacy_request_remains_non_idempotent(client):
+def test_idemp_008_reading_id_is_required(client):
     payload = reading_payload()
-    first = client.post("/api/v1/readings", json=payload)
-    second = client.post("/api/v1/readings", json=payload)
-
-    assert first.status_code == 201
-    assert second.status_code == 201
-    assert "device_reading_id" not in first.json
-    assert "duplicate" not in first.json
-    assert _reading_count() == 2
+    payload.pop("device_reading_id")
+    response = client.post("/api/v1/readings", json=payload)
+    assert response.status_code == 400
+    assert response.json["error"] == "MISSING_FIELDS"
+    assert response.json["fields"] == ["device_reading_id"]
+    assert _reading_count() == 0
 
 
 @pytest.mark.parametrize(
@@ -453,19 +454,11 @@ def test_snapshot_003_persists_after_database_reopen(client):
     assert row["freshness_evaluated_at"]
 
 
-def test_snapshot_004_legacy_reading_keeps_null_device_id(client):
-    assert client.post("/api/v1/readings", json=reading_payload()).status_code == 201
-    connection = readings_module.get_db_connection()
-    try:
-        row = connection.execute(
-            "SELECT device_reading_id, freshness_status, freshness_reason, "
-            "freshness_evaluated_at FROM sensor_readings"
-        ).fetchone()
-    finally:
-        connection.close()
-    assert row["device_reading_id"] is None
-    assert row["freshness_status"] == "Fresh / Normal"
-    assert row["freshness_evaluated_at"]
+def test_snapshot_004_missing_reading_id_is_rejected_without_row(client):
+    payload = reading_payload()
+    payload.pop("device_reading_id")
+    assert client.post("/api/v1/readings", json=payload).status_code == 400
+    assert _reading_count() == 0
 
 
 @pytest.mark.parametrize("limit", ["0", "-1"])
@@ -528,6 +521,52 @@ def test_duplicate_event_remains_idempotent(client):
     assert first.status_code == 201
     assert duplicate.status_code == 200
     assert duplicate.json["duplicate"] is True
+
+
+def test_event_sync_lost_response_retries_same_id_and_creates_one_row(
+    client, tmp_path, monkeypatch
+):
+    queue_file = tmp_path / "pending_events.jsonl"
+    payload = event_payload(event_id=str(uuid.uuid4()))
+    calls = []
+
+    class ClientResponse:
+        def __init__(self, response):
+            self.status_code = response.status_code
+            self.body = response.get_json()
+
+        def json(self):
+            return self.body
+
+    def post_via_test_client(_url, *, json, timeout):
+        calls.append(dict(json))
+        response = client.post("/api/v1/events", json=json)
+        if len(calls) == 1:
+            assert response.status_code == 201
+            raise requests.Timeout("backend committed; response lost")
+        return ClientResponse(response)
+
+    monkeypatch.setattr(simulator.requests, "post", post_via_test_client)
+    result = simulator.submit_event(
+        payload, queue_file, sleep_fn=lambda _delay: None
+    )
+
+    assert [call["event_id"] for call in calls] == [payload["event_id"]] * 2
+    assert calls == [payload, payload]
+    assert result.status_code == 200
+    assert result.body["duplicate"] is True
+    assert _event_count(payload["event_id"]) == 1
+    assert simulator.load_pending_events(queue_file) == []
+
+
+def _event_count(event_id):
+    connection = events_module.get_db_connection()
+    try:
+        return connection.execute(
+            "SELECT COUNT(*) FROM events WHERE event_id = ?", (event_id,)
+        ).fetchone()[0]
+    finally:
+        connection.close()
 
 
 def test_events_missing_required_field_reports_400(client):

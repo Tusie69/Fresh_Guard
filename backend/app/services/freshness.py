@@ -65,45 +65,61 @@ def _is_finite_number(value):
         return False
 
 
-def _evaluate_temperature_rule(temperature_c):
+def _evaluate_temperature_rule(temperature_c, exposure_hours=0):
     if temperature_c is None:
         return CHECK_FOOD_SEVERITY, "Temperature sensor fault."
 
     if not _is_finite_number(temperature_c):
         return CHECK_FOOD_SEVERITY, "Invalid temperature value."
 
-    if temperature_c <= 8:
+    if not _is_finite_number(exposure_hours) or exposure_hours < 0:
+        return CHECK_FOOD_SEVERITY, "Invalid temperature exposure duration."
+
+    if temperature_c <= 5:
         return FRESH_SEVERITY, ""
 
-    if temperature_c <= 12:
-        return USE_SOON_SEVERITY, "Temperature is in the Use Soon range."
+    if exposure_hours <= 2:
+        return FRESH_SEVERITY, ""
 
-    return CHECK_FOOD_SEVERITY, "Temperature is above the Check Food threshold."
+    return CHECK_FOOD_SEVERITY, "Temperature exposure exceeded 2 hours."
 
 
-def evaluate_temperature(temperature_c):
-    severity, reason = _evaluate_temperature_rule(temperature_c)
+def evaluate_temperature(temperature_c, exposure_hours=0):
+    severity, reason = _evaluate_temperature_rule(temperature_c, exposure_hours)
     return FreshnessResult(severity_to_status(severity), reason)
 
 
-def _evaluate_humidity_rule(humidity_pct):
+def _evaluate_humidity_rule(humidity_pct, category=None):
     if humidity_pct is None:
         return CHECK_FOOD_SEVERITY, "Humidity sensor fault."
     if not _is_finite_number(humidity_pct):
         return CHECK_FOOD_SEVERITY, "Invalid humidity value."
+    try:
+        category = category if isinstance(category, FoodCategory) else FoodCategory(category)
+    except (TypeError, ValueError):
+        category = None
+    if category in (FoodCategory.VEGETABLE, FoodCategory.FRUIT):
+        if humidity_pct < 80:
+            return FRESH_SEVERITY, "Low humidity warning."
+        if humidity_pct > 95:
+            return FRESH_SEVERITY, "High humidity warning."
     return FRESH_SEVERITY, ""
 
 
-def evaluate_humidity(humidity_pct):
-    severity, reason = _evaluate_humidity_rule(humidity_pct)
+def evaluate_humidity(humidity_pct, category=None):
+    severity, reason = _evaluate_humidity_rule(humidity_pct, category)
     return FreshnessResult(severity_to_status(severity), reason)
 
 
-def _evaluate_gas_rule(gas_raw):
+def _evaluate_gas_rule(gas_raw, anomaly_active=False):
     if gas_raw is None:
-        return CHECK_FOOD_SEVERITY, "Gas sensor fault."
+        return CHECK_FOOD_SEVERITY, "Gas sensor data unavailable."
     if not _is_finite_number(gas_raw):
-        return CHECK_FOOD_SEVERITY, "Invalid gas reading."
+        return CHECK_FOOD_SEVERITY, "Invalid gas sensor data."
+    if gas_raw < 0:
+        return CHECK_FOOD_SEVERITY, "Invalid gas sensor data."
+    if anomaly_active:
+        return CHECK_FOOD_SEVERITY, "Gas level is significantly above baseline."
     return FRESH_SEVERITY, ""
 
 
@@ -128,7 +144,7 @@ def _evaluate_door_rule(door_open, open_duration_seconds):
     if open_duration_seconds >= DOOR_OPEN_TIMEOUT_SECONDS:
         return CHECK_FOOD_SEVERITY, "Door has exceeded the maximum open duration."
 
-    return USE_SOON_SEVERITY, "Door has been open for too long."
+    return FRESH_SEVERITY, "Door is open."
 
 
 def _to_calendar_date(inserted_at):
@@ -205,7 +221,7 @@ def _evaluate_expiry_rule(expiry_date, current_date=None):
 
 def evaluate_door(door_open):
     if door_open is True:
-        return FreshnessResult(FreshnessStatus.USE_SOON, "Door is open.")
+        return FreshnessResult(FreshnessStatus.FRESH, "Door is open.")
 
     severity, reason = _evaluate_door_rule(door_open, 0)
     return FreshnessResult(severity_to_status(severity), reason)
@@ -224,12 +240,14 @@ def evaluate_freshness(
     open_duration_seconds=0,
     category=None,
     inserted_at=None,
-    expiry_date=None
+    expiry_date=None,
+    temperature_exposure_hours=0,
+    gas_anomaly_active=False
 ):
     rule_results = (
-        _evaluate_temperature_rule(temperature_c),
-        _evaluate_humidity_rule(humidity_pct),
-        _evaluate_gas_rule(gas_raw),
+        _evaluate_temperature_rule(temperature_c, temperature_exposure_hours),
+        _evaluate_humidity_rule(humidity_pct, category),
+        _evaluate_gas_rule(gas_raw, gas_anomaly_active),
         _evaluate_door_rule(door_open, open_duration_seconds),
         _evaluate_storage_duration_rule(category, inserted_at),
         _evaluate_expiry_rule(expiry_date),
@@ -239,7 +257,7 @@ def evaluate_freshness(
     reasons = [
         reason
         for severity, reason in rule_results
-        if severity > FRESH_SEVERITY
+        if severity > FRESH_SEVERITY or reason
     ]
 
     return FreshnessResult(

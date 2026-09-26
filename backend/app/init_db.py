@@ -19,6 +19,7 @@ def init_db():
             freshness_status TEXT NULL,
             freshness_reason TEXT NULL,
             freshness_evaluated_at TEXT NULL,
+            gas_anomaly_active INTEGER NOT NULL DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -42,6 +43,7 @@ def init_db():
         ("freshness_status", "TEXT NULL"),
         ("freshness_reason", "TEXT NULL"),
         ("freshness_evaluated_at", "TEXT NULL"),
+        ("gas_anomaly_active", "INTEGER NOT NULL DEFAULT 0"),
     ):
         if column not in reading_columns:
             connection.execute(
@@ -68,6 +70,47 @@ def init_db():
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS gas_anomaly_state (
+            device_id TEXT NOT NULL,
+            food_id TEXT NOT NULL DEFAULT '',
+            baseline REAL NULL,
+            baseline_sample_count INTEGER NOT NULL DEFAULT 0,
+            baseline_sum REAL NOT NULL DEFAULT 0,
+            consecutive_anomaly_count INTEGER NOT NULL DEFAULT 0,
+            anomaly_active INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (device_id, food_id)
+        )
+    """)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS temperature_exposure_state (
+            device_id TEXT NOT NULL,
+            food_id TEXT NOT NULL DEFAULT '',
+            exposure_seconds REAL NOT NULL DEFAULT 0,
+            exposure_active INTEGER NOT NULL DEFAULT 0,
+            exposure_exceeded INTEGER NOT NULL DEFAULT 0,
+            last_valid_temperature_timestamp TEXT NULL,
+            continuity_broken INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (device_id, food_id)
+        )
+    """)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS sensor_fault_state (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            food_id TEXT NULL,
+            sensor_name TEXT NOT NULL,
+            fault_active INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_sensor_fault_logical_key "
+        "ON sensor_fault_state (device_id, COALESCE(food_id, ''), sensor_name)"
+    )
 
     connection.execute("""
         CREATE TABLE IF NOT EXISTS events (

@@ -22,11 +22,11 @@ def test_temperature_fresh():
 def test_temperature_use_soon():
     result = evaluate_temperature(10)
 
-    assert result.status == FreshnessStatus.USE_SOON
+    assert result.status == FreshnessStatus.FRESH
 
 
 def test_temperature_check_food():
-    result = evaluate_temperature(15)
+    result = evaluate_temperature(15, 2.1)
 
     assert result.status == FreshnessStatus.CHECK_FOOD
 
@@ -71,7 +71,7 @@ def test_door_closed():
 def test_door_open():
     result = evaluate_door_timeout(True, 10)
 
-    assert result.status == FreshnessStatus.USE_SOON
+    assert result.status == FreshnessStatus.FRESH
 
 
 def test_door_open_too_long():
@@ -115,6 +115,17 @@ def test_storage_duration_boundaries(category, days_stored, expected_status):
 
 
 @pytest.mark.parametrize(
+    ("category", "max_days"),
+    [("MEAT", 3), ("DAIRY", 14), ("VEGETABLE", 7), ("FRUIT", 14), ("COOKED_FOOD", 4)],
+)
+def test_storage_profile_thresholds_for_all_categories(category, max_days):
+    assert evaluate_with_optional_food(category, max_days - 2).status == FreshnessStatus.FRESH
+    assert evaluate_with_optional_food(category, max_days - 1).status == FreshnessStatus.USE_SOON
+    assert evaluate_with_optional_food(category, max_days).status == FreshnessStatus.USE_SOON
+    assert evaluate_with_optional_food(category, max_days + 1).status == FreshnessStatus.CHECK_FOOD
+
+
+@pytest.mark.parametrize(
     ("expiry_offset", "expected_status"),
     [
         (2, FreshnessStatus.FRESH),
@@ -151,7 +162,7 @@ def test_storage_and_expiry_aggregate_by_max(days_stored, expiry_offset, expecte
 @pytest.mark.parametrize(
     ("temperature_c", "expiry_offset", "category", "days_stored", "expected_status"),
     [
-        (10, None, None, None, FreshnessStatus.USE_SOON),
+        (10, None, None, None, FreshnessStatus.FRESH),
         (5, None, "MEAT", 4, FreshnessStatus.CHECK_FOOD),
         (10, -1, None, None, FreshnessStatus.CHECK_FOOD),
     ],
@@ -173,6 +184,7 @@ def test_all_active_rules_reasons_are_preserved():
     today = date.today()
     result = evaluate_freshness(
         temperature_c=15,
+        temperature_exposure_hours=3,
         humidity_pct=None,
         gas_raw=None,
         door_open=True,
@@ -225,7 +237,7 @@ def test_negative_open_duration_is_invalid():
 @pytest.mark.parametrize(
     ("duration", "expected_status"),
     [
-        (29, FreshnessStatus.USE_SOON),
+        (29, FreshnessStatus.FRESH),
         (30, FreshnessStatus.CHECK_FOOD),
         (31, FreshnessStatus.CHECK_FOOD),
     ],
@@ -242,16 +254,153 @@ def test_door_timeout_boundary(duration, expected_status):
 @pytest.mark.parametrize(
     ("temperature_c", "expected_status"),
     [
+        (5, FreshnessStatus.FRESH),
+        (5.01, FreshnessStatus.FRESH),
         (8, FreshnessStatus.FRESH),
-        (8.01, FreshnessStatus.USE_SOON),
-        (12, FreshnessStatus.USE_SOON),
-        (12.01, FreshnessStatus.CHECK_FOOD),
+        (8.01, FreshnessStatus.FRESH),
+        (12, FreshnessStatus.FRESH),
+        (12.01, FreshnessStatus.FRESH),
     ],
 )
 def test_temperature_threshold_boundaries(temperature_c, expected_status):
     result = evaluate_with_optional_food(temperature_c=temperature_c)
 
     assert result.status == expected_status
+
+
+@pytest.mark.parametrize("temperature", [5.01, 8, 12, 15])
+def test_temperature_exposure_rule(temperature):
+    assert evaluate_temperature(temperature, 2).status == FreshnessStatus.FRESH
+    result = evaluate_temperature(temperature, 2.01)
+    assert result.status == FreshnessStatus.CHECK_FOOD
+    assert "exceeded 2 hours" in result.reason
+
+
+def test_temperature_recovery_at_or_below_five_resets_exposure():
+    assert evaluate_temperature(5, 10).status == FreshnessStatus.FRESH
+    assert evaluate_temperature(4, 10).status == FreshnessStatus.FRESH
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("temperature_c", float("nan")),
+        ("temperature_c", float("inf")),
+        ("humidity_pct", float("nan")),
+        ("humidity_pct", float("inf")),
+        ("gas_raw", float("nan")),
+        ("gas_raw", float("inf")),
+        ("gas_raw", -1),
+    ],
+)
+def test_non_finite_or_negative_sensor_data_is_never_fresh(field, value):
+    result = evaluate_with_optional_food(**{field: value})
+    assert result.status == FreshnessStatus.CHECK_FOOD
+
+
+def test_invalid_sensor_dominates_another_rule_use_soon():
+    result = evaluate_with_optional_food(
+        category="MEAT", days_stored=2, humidity_pct=float("nan")
+    )
+    assert result.status == FreshnessStatus.CHECK_FOOD
+    assert "humidity" in result.reason.lower()
+    assert "storage duration" in result.reason.lower()
+
+
+@pytest.mark.parametrize("humidity", [79.9, 80, 95, 95.1])
+def test_valid_humidity_does_not_change_severity(humidity):
+    assert evaluate_humidity(humidity, "VEGETABLE").status == FreshnessStatus.FRESH
+
+
+@pytest.mark.parametrize(
+    ("humidity", "expected_warning"),
+    [(79.9, "low humidity"), (95.1, "high humidity")],
+)
+def test_produce_humidity_warnings_are_reported_without_increasing_severity(
+    humidity, expected_warning
+):
+    result = evaluate_freshness(
+        temperature_c=5, humidity_pct=humidity, gas_raw=100,
+        door_open=False, category="VEGETABLE",
+    )
+    assert result.status == FreshnessStatus.FRESH
+    assert expected_warning in result.reason.lower()
+
+
+@pytest.mark.parametrize("category", ["MEAT", "DAIRY", "COOKED_FOOD"])
+def test_non_produce_humidity_does_not_create_warning(category):
+    result = evaluate_freshness(
+        temperature_c=5, humidity_pct=50, gas_raw=100,
+        door_open=False, category=category,
+    )
+    assert result.status == FreshnessStatus.FRESH
+    assert "humidity" not in result.reason.lower()
+
+
+def test_temperature_does_not_override_storage_use_soon():
+    result = evaluate_with_optional_food("MEAT", 2, temperature_c=15)
+    assert result.status == FreshnessStatus.USE_SOON
+
+
+@pytest.mark.parametrize(
+    ("case", "expected_status", "expected_reasons"),
+    [
+        ("all_fresh", FreshnessStatus.FRESH, ()),
+        ("storage_soon", FreshnessStatus.USE_SOON, ("storage duration",)),
+        ("expiry_soon", FreshnessStatus.USE_SOON, ("expiry",)),
+        ("gas_anomaly", FreshnessStatus.CHECK_FOOD, ("gas",)),
+        ("temperature_exposure", FreshnessStatus.CHECK_FOOD, ("temperature",)),
+        ("door_timeout", FreshnessStatus.CHECK_FOOD, ("door",)),
+        ("gas_and_expiry", FreshnessStatus.CHECK_FOOD, ("gas", "expiry")),
+        ("temperature_and_expiry", FreshnessStatus.CHECK_FOOD, ("temperature", "expiry")),
+        ("gas_and_storage", FreshnessStatus.CHECK_FOOD, ("gas", "storage duration")),
+        ("recovered_gas_and_temperature", FreshnessStatus.CHECK_FOOD, ("temperature",)),
+        ("recovered_gas_and_expiry", FreshnessStatus.USE_SOON, ("expiry",)),
+        ("humidity_warning_and_storage", FreshnessStatus.USE_SOON, ("low humidity", "storage duration")),
+        ("humidity_warning_and_gas", FreshnessStatus.CHECK_FOOD, ("low humidity", "gas")),
+        ("short_door_open_fresh", FreshnessStatus.FRESH, ("door",)),
+        ("short_door_open_storage", FreshnessStatus.USE_SOON, ("door", "storage duration")),
+    ],
+)
+def test_cross_rule_integration(case, expected_status, expected_reasons):
+    today = date.today()
+    args = {
+        "temperature_c": 5,
+        "temperature_exposure_hours": 0,
+        "humidity_pct": 90,
+        "gas_raw": 100,
+        "gas_anomaly_active": False,
+        "door_open": False,
+        "open_duration_seconds": 0,
+        "category": "MEAT",
+        "inserted_at": today,
+        "expiry_date": today + timedelta(days=2),
+    }
+    if case in ("storage_soon", "gas_and_storage", "humidity_warning_and_storage", "short_door_open_storage"):
+        args["inserted_at"] = today - timedelta(days=2 if args["category"] == "MEAT" else 6)
+    if case in ("expiry_soon", "gas_and_expiry", "temperature_and_expiry", "recovered_gas_and_expiry"):
+        args["expiry_date"] = today + timedelta(days=1)
+    if case in ("gas_anomaly", "gas_and_expiry", "gas_and_storage", "humidity_warning_and_gas"):
+        args["gas_anomaly_active"] = True
+    if case in ("temperature_exposure", "temperature_and_expiry", "recovered_gas_and_temperature"):
+        args["temperature_c"] = 10
+        args["temperature_exposure_hours"] = 2.1
+    if case == "door_timeout":
+        args["door_open"] = True
+        args["open_duration_seconds"] = 30
+    if case in ("humidity_warning_and_storage", "humidity_warning_and_gas"):
+        args["category"] = "VEGETABLE"
+        args["humidity_pct"] = 79
+        if case == "humidity_warning_and_storage":
+            args["inserted_at"] = today - timedelta(days=6)
+    if case in ("short_door_open_fresh", "short_door_open_storage"):
+        args["door_open"] = True
+        args["open_duration_seconds"] = 29
+
+    result = evaluate_freshness(**args)
+    assert result.status == expected_status
+    for fragment in expected_reasons:
+        assert fragment in result.reason.lower()
 
 
 def test_future_inserted_at_is_invalid():
@@ -288,7 +437,7 @@ def test_optional_food_data_does_not_change_normal_environment():
     ("door_open", "expected_status", "expected_reason"),
     [
         (False, FreshnessStatus.FRESH, ""),
-        (True, FreshnessStatus.USE_SOON, "Door is open."),
+        (True, FreshnessStatus.FRESH, "Door is open."),
     ],
 )
 def test_evaluate_door_wrapper(door_open, expected_status, expected_reason):

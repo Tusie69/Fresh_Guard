@@ -94,7 +94,97 @@
     async function saveRules() { const changes = {}; state.controls.forEach((entry, key) => { if (!entry.meta.editable) return; const value = Number(entry.input.value); if (value !== entry.original && value !== entry.meta.value) changes[key] = value; }); const reason = $("reason").value.trim(); if (!reason) return showMessage("A reason is required before saving.", true); const validation = validateChanges(changes); if (validation) return showMessage(validation, true); if (!Object.keys(changes).length) return showMessage("No changes to save."); if (Object.keys(changes).some(key => key === "temperature.exposure_limit_seconds" || key === "temperature.hot_threshold_c") && !window.confirm("Changing temperature stateful rules will reset all active temperature exposure state. Historical readings and events will remain unchanged. Continue?")) return; $("save").disabled = true; try { const result = await api("/admin/freshness-rules", { method: "PUT", body: JSON.stringify({ reason, rules: changes }) }); showMessage(`${result.changed_count} rule(s) saved.`); await loadRules(); await loadHistory(); } catch (error) { showMessage(error.message, true); $("save").disabled = false; } }
     async function resetDefaults() { if (!window.confirm("Reset all editable stateless rules to DEFAULT_RULES? Temperature, Gas and Door will remain unchanged.")) return; const reason = window.prompt("Reason for resetting editable rules:"); if (!reason || !reason.trim()) { showMessage("A reason is required.", true); return; } try { const result = await api("/admin/freshness-rules/reset", { method: "POST", body: JSON.stringify({ reason: reason.trim() }) }); showMessage(`${result.changed_count} rule(s) reset to defaults.`); await loadRules(); await loadHistory(); } catch (error) { showMessage(error.message, true); } }
     async function loadHistory() { try { const result = await api("/admin/freshness-rules/history?limit=100"); const body = $("history-body"); body.replaceChildren(); if (!result.history.length) { const row = body.insertRow(); row.insertCell().textContent = "No changes recorded"; row.cells[0].colSpan = 7; return; } result.history.forEach(item => { const row = body.insertRow(); [item.changed_at, item.actor_username, item.actor_role, item.rule_key, item.old_value, item.new_value, item.reason].forEach(value => row.insertCell().textContent = value ?? ""); }); $("recent-changes").textContent = `${result.history.length} recent change(s) available.`; } catch (error) { showMessage(error.message, true); } }
-    async function loadOverview() { try { const result = await api("/admin/overview"); $("overview-admin").textContent = state.user.username; $("user-count").textContent = result.users.total; $("active-user-count").textContent = result.users.active; $("reading-count").textContent = result.readings.total; $("food-count").textContent = result.foods.total; $("event-count").textContent = result.events.total; $("editable-count").textContent = result.freshness_rules.editable; $("locked-count").textContent = result.freshness_rules.locked; $("latest-reading").textContent = result.readings.latest_timestamp || "No readings"; $("latest-freshness").textContent = result.readings.latest_freshness_status || "Unavailable"; $("recent-changes").textContent = result.freshness_rules.latest_change_at ? `Last change: ${result.freshness_rules.latest_change_at}` : "No rule changes recorded."; } catch (error) { showMessage(error.status === 403 ? "Access denied" : "Overview unavailable", true); } }
+    async function loadOverview() {
+      // Load admin overview counts
+      try {
+        const overview = await api("/admin/overview");
+        $("overview-admin").textContent = state.user.username;
+        $("user-count").textContent = overview.users.total;
+        $("active-user-count").textContent = overview.users.active;
+        $("reading-count").textContent = overview.readings.total;
+        $("food-count").textContent = overview.foods.total;
+        $("event-count").textContent = overview.events.total;
+        $("editable-count").textContent = overview.freshness_rules.editable;
+        $("locked-count").textContent = overview.freshness_rules.locked;
+        $("recent-changes").textContent = overview.freshness_rules.latest_change_at
+          ? `Last change: ${overview.freshness_rules.latest_change_at}`
+          : "No rule changes recorded.";
+      } catch (error) {
+        // admin overview failure is non-fatal for sensor display
+      }
+
+      // Load live sensor data from readings/latest
+      try {
+        const res = await api("/readings/latest");
+        const d = res.data;
+
+        // Temperature
+        $("overview-temperature").textContent =
+          d.temperature_c !== null && d.temperature_c !== undefined
+            ? `${d.temperature_c} °C`
+            : "Data Unavailable";
+
+        // Humidity
+        $("overview-humidity").textContent =
+          d.humidity_pct !== null && d.humidity_pct !== undefined
+            ? `${d.humidity_pct} %`
+            : "Data Unavailable";
+
+        // Gas — raw value, no unit conversion
+        $("overview-gas").textContent =
+          d.gas_raw !== null && d.gas_raw !== undefined
+            ? `${d.gas_raw}`
+            : "Data Unavailable";
+
+        // Door — explicit === checks, not ternary (null must not become CLOSED)
+        if (d.door_open === true) {
+          $("overview-door").textContent = "OPEN";
+        } else if (d.door_open === false) {
+          $("overview-door").textContent = "CLOSED";
+        } else {
+          $("overview-door").textContent = "Data Unavailable";
+        }
+
+        // Freshness — backend is the authority, frontend never calculates
+        const fs = d.freshness;
+        $("overview-freshness").textContent =
+          fs && fs.status ? fs.status : "Data Unavailable";
+
+        // Reason — verbatim from backend
+        $("overview-reason").textContent =
+          fs && fs.reason ? fs.reason : "N/A";
+
+        // Observed time — from sensor timestamp, formatted for readability
+        const ts = d.timestamp;
+        if (ts) {
+          const formatted = ts.replace("T", " ").replace("+07:00", "").replace("Z", "");
+          $("overview-observed-at").textContent = formatted;
+        } else {
+          $("overview-observed-at").textContent = "Unknown";
+        }
+      } catch (err) {
+        // 404 NO_DATA — clear gracefully, no crash banner
+        if (err.status === 404) {
+          const u = "Data Unavailable";
+          $("overview-temperature").textContent = u;
+          $("overview-humidity").textContent = u;
+          $("overview-gas").textContent = u;
+          $("overview-door").textContent = u;
+          $("overview-freshness").textContent = u;
+          $("overview-reason").textContent = "N/A";
+          $("overview-observed-at").textContent = "Unknown";
+        } else {
+          // Network/server error — clear, do NOT leave stale data
+          $("overview-temperature").textContent = "Sensor data unavailable";
+          $("overview-humidity").textContent = "Sensor data unavailable";
+          $("overview-gas").textContent = "Sensor data unavailable";
+          $("overview-door").textContent = "Sensor data unavailable";
+          $("overview-freshness").textContent = "Sensor data unavailable";
+          $("overview-reason").textContent = "N/A";
+          $("overview-observed-at").textContent = "Unknown";
+        }
+      }
+    }
     async function loadUsers() { try { const result = await api("/admin/users"); const body = $("users-body"); body.replaceChildren(); result.users.forEach(user => { const row = body.insertRow(); [user.id, user.username, user.role, user.is_active ? "Active" : "Inactive", user.created_at, user.updated_at].forEach(value => row.insertCell().textContent = value); const actions = row.insertCell(); const roleButton = document.createElement("button"); roleButton.className = "compact-button"; roleButton.textContent = user.role === "ADMIN" ? "Make USER" : "Make ADMIN"; roleButton.disabled = user.id === state.user.id; roleButton.addEventListener("click", () => updateUser(user.id, { role: user.role === "ADMIN" ? "USER" : "ADMIN" })); actions.appendChild(roleButton); const statusButton = document.createElement("button"); statusButton.className = "compact-button"; statusButton.style.marginLeft = "5px"; statusButton.textContent = user.is_active ? "Deactivate" : "Activate"; statusButton.disabled = user.id === state.user.id; statusButton.addEventListener("click", () => updateUser(user.id, { is_active: !user.is_active })); actions.appendChild(statusButton); }); } catch (error) { showMessage(error.message, true); } }
     async function updateUser(id, changes) { const reason = window.prompt("Reason for this user change:"); if (!reason || !reason.trim()) { showMessage("A reason is required.", true); return; } try { await api(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify({ ...changes, reason: reason.trim() }) }); showMessage("User updated."); await loadUsers(); } catch (error) { showMessage(error.message, true); } }
     async function loadUserAudit() { try { const result = await api("/admin/users/history?limit=100"); const body = $("user-audit-body"); body.replaceChildren(); if (!result.history.length) { const row = body.insertRow(); row.insertCell().textContent = "No user changes recorded"; row.cells[0].colSpan = 7; return; } result.history.forEach(item => { const row = body.insertRow(); [item.created_at, item.actor_username, item.target_username, item.action, item.old_value ?? "", item.new_value ?? "", item.reason ?? ""].forEach(value => row.insertCell().textContent = value); }); } catch (error) { showMessage(error.message, true); } }

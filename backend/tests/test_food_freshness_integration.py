@@ -118,20 +118,21 @@ def test_tc10_food_use_soon_and_fresh_temperature(api_client):
     assert "storage duration" in response.json["freshness"]["reason"].lower()
 
 
-def test_tc11_temperature_without_exposure_does_not_change_fresh_status(api_client):
+def test_tc11_critical_temperature_returns_check_food_without_exposure(api_client):
     register_food(api_client, "FG-AGG-11", stored_days=0, expiry_days=10)
 
     response = post_reading(api_client, food_id="FG-AGG-11", temperature_c=15)
 
-    assert response.json["freshness"]["status"] == "Fresh / Normal"
+    assert response.json["freshness"]["status"] == "Check Food"
 
 
-def test_tc12_storage_use_soon_wins_when_temperature_exposure_is_not_provided(api_client):
+def test_tc12_critical_temperature_overrides_storage_use_soon(api_client):
     register_food(api_client, "FG-AGG-12", stored_days=2, expiry_days=10)
 
     response = post_reading(api_client, food_id="FG-AGG-12", temperature_c=15)
 
-    assert response.json["freshness"]["status"] == "Use Soon"
+    assert response.json["freshness"]["status"] == "Check Food"
+    assert "Critical Temperature" in response.json["freshness"]["reason"]
     assert "storage duration" in response.json["freshness"]["reason"].lower()
 
 

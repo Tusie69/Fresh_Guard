@@ -1,4 +1,5 @@
 from app.database import get_db_connection
+from app.services.rule_provider import seed_default_rules
 
 
 def init_db():
@@ -123,6 +124,61 @@ def init_db():
             door_open INTEGER NOT NULL,
             open_duration_seconds INTEGER NOT NULL DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL CHECK (role IN ('USER', 'ADMIN')),
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS freshness_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_key TEXT NOT NULL UNIQUE,
+            rule_value TEXT NOT NULL,
+            value_type TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_by_user_id INTEGER NULL
+        )
+    """)
+    seed_default_rules(connection)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS freshness_rule_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            actor_user_id INTEGER NOT NULL,
+            actor_username TEXT NOT NULL,
+            actor_role TEXT NOT NULL,
+            rule_key TEXT NOT NULL,
+            old_value TEXT NOT NULL,
+            new_value TEXT NOT NULL,
+            value_type TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            changed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS user_management_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            actor_user_id INTEGER NOT NULL,
+            actor_username TEXT NOT NULL,
+            actor_role TEXT NOT NULL,
+            target_user_id INTEGER NOT NULL,
+            target_username TEXT NOT NULL,
+            action TEXT NOT NULL,
+            old_value TEXT NULL,
+            new_value TEXT NULL,
+            reason TEXT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """)
 

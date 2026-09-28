@@ -259,7 +259,7 @@ def test_door_timeout_boundary(duration, expected_status):
         (8, FreshnessStatus.FRESH),
         (8.01, FreshnessStatus.FRESH),
         (12, FreshnessStatus.FRESH),
-        (12.01, FreshnessStatus.FRESH),
+        (12.01, FreshnessStatus.CHECK_FOOD),
     ],
 )
 def test_temperature_threshold_boundaries(temperature_c, expected_status):
@@ -268,12 +268,18 @@ def test_temperature_threshold_boundaries(temperature_c, expected_status):
     assert result.status == expected_status
 
 
-@pytest.mark.parametrize("temperature", [5.01, 8, 12, 15])
+@pytest.mark.parametrize("temperature", [5.01, 8, 12])
 def test_temperature_exposure_rule(temperature):
     assert evaluate_temperature(temperature, 2).status == FreshnessStatus.FRESH
     result = evaluate_temperature(temperature, 2.01)
     assert result.status == FreshnessStatus.CHECK_FOOD
     assert "exceeded 2 hours" in result.reason
+
+
+def test_critical_temperature_ignores_exposure_limit():
+    result = evaluate_temperature(15, 0)
+    assert result.status == FreshnessStatus.CHECK_FOOD
+    assert "Critical Temperature" in result.reason
 
 
 def test_temperature_recovery_at_or_below_five_resets_exposure():
@@ -339,7 +345,8 @@ def test_non_produce_humidity_does_not_create_warning(category):
 
 def test_temperature_does_not_override_storage_use_soon():
     result = evaluate_with_optional_food("MEAT", 2, temperature_c=15)
-    assert result.status == FreshnessStatus.USE_SOON
+    assert result.status == FreshnessStatus.CHECK_FOOD
+    assert "Critical Temperature" in result.reason
 
 
 @pytest.mark.parametrize(

@@ -4,12 +4,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import math
 
+from app.services.rule_provider import get_freshness_rules
 
-TEMPERATURE_LIMIT_C = 5.0
-TEMPERATURE_EXPOSURE_LIMIT_SECONDS = 2 * 60 * 60
-# The simulator samples every five seconds. Do not infer unobserved exposure
-# when a reading gap exceeds two expected sample periods.
-MAX_CONTIGUOUS_READING_GAP_SECONDS = 10
+
+# Compatibility aliases for existing callers/tests. Rule values live in the
+# immutable provider snapshot above; these aliases are not independent config.
+_DEFAULT_RULES = get_freshness_rules()
+TEMPERATURE_LIMIT_C = _DEFAULT_RULES.temperature_hot_threshold_c
+TEMPERATURE_EXPOSURE_LIMIT_SECONDS = _DEFAULT_RULES.temperature_exposure_limit_seconds
+MAX_CONTIGUOUS_READING_GAP_SECONDS = _DEFAULT_RULES.temperature_continuity_gap_seconds
 
 
 @dataclass(frozen=True)
@@ -35,13 +38,14 @@ def _valid_temperature(value):
 
 
 def update_temperature_exposure(connection, device_id, food_id, temperature_c,
-                                timestamp):
+                                timestamp, rules=None):
     """Update one persisted context inside the caller's transaction.
 
     Exposure accumulates only between consecutive observed hot readings no
     more than ten seconds apart. Gaps and invalid temperatures never add time.
     Out-of-order readings leave the state untouched.
     """
+    rules = rules or get_freshness_rules()
     state = connection.execute(
         "SELECT * FROM temperature_exposure_state "
         "WHERE device_id = ? AND food_id = ?",
@@ -79,7 +83,7 @@ def update_temperature_exposure(connection, device_id, food_id, temperature_c,
     else:
         previous_time = None
 
-    if temperature_c <= TEMPERATURE_LIMIT_C:
+    if temperature_c <= rules.temperature_hot_threshold_c:
         exposure_seconds = 0.0
         exposure_active = False
         exposure_exceeded = False
@@ -88,10 +92,10 @@ def update_temperature_exposure(connection, device_id, food_id, temperature_c,
         exposure_active = True
         if old_active and not continuity_broken and previous_time is not None:
             gap = (reading_time - previous_time).total_seconds()
-            if 0 < gap <= MAX_CONTIGUOUS_READING_GAP_SECONDS:
+            if 0 < gap <= rules.temperature_continuity_gap_seconds:
                 exposure_seconds += gap
         exposure_exceeded = old_exceeded or (
-            exposure_seconds > TEMPERATURE_EXPOSURE_LIMIT_SECONDS
+            exposure_seconds > rules.temperature_exposure_limit_seconds
         )
 
     connection.execute(

@@ -106,12 +106,33 @@ def test_at_or_below_five_resets_and_never_emits_temperature_event(temperature_c
     assert temperature_events(temperature_client) == []
 
 
+def test_critical_temperature_still_uses_hot_exposure_state(temperature_client):
+    prime_exposure_state(temperature_client, exposure_seconds=100, last_seconds=0)
+    response = post_temperature(temperature_client, 13, seconds=5)
+    assert response.status_code == 201
+    assert response.json["freshness"]["status"] == "Check Food"
+    state = state_for(temperature_client)
+    assert state["exposure_seconds"] == 105
+    assert state["exposure_active"] == 1
+
+
 def test_first_hot_reading_starts_exposure_without_event(temperature_client):
     response = post_temperature(temperature_client, 6)
     assert response.json["freshness"]["status"] == "Fresh / Normal"
     state = state_for(temperature_client)
     assert state["exposure_active"] == 1
     assert state["exposure_seconds"] == 0
+    assert temperature_events(temperature_client) == []
+
+
+def test_critical_temperature_checks_food_without_exposure_event(temperature_client):
+    response = post_temperature(temperature_client, 30)
+    assert response.status_code == 201
+    assert response.json["freshness"]["status"] == "Check Food"
+    assert "Critical Temperature" in response.json["freshness"]["reason"]
+    state = state_for(temperature_client)
+    assert state["exposure_seconds"] == 0
+    assert state["exposure_exceeded"] == 0
     assert temperature_events(temperature_client) == []
 
 

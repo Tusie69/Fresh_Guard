@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FreshGuard Login</title>
+  <style>
+    :root { font-family: "Segoe UI", Arial, sans-serif; color: #18312b; background: #eef5f1; }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 20px; }
+    main { width: min(420px, 100%); padding: 32px; background: #fff; border: 1px solid #dce7e2; border-radius: 16px; box-shadow: 0 10px 30px rgb(20 60 45 / 10%); }
+    h1 { margin: 0 0 8px; color: #176b52; }
+    p { color: #61736c; }
+    label { display: block; margin: 18px 0 6px; font-weight: 600; }
+    input { width: 100%; padding: 11px 12px; border: 1px solid #cbdad3; border-radius: 8px; font: inherit; }
+    button { width: 100%; margin-top: 22px; padding: 12px; border: 0; border-radius: 8px; color: white; background: #176b52; font: inherit; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #message { margin: 16px 0 0; padding: 10px; border-radius: 8px; background: #fff0ee; color: #8d2018; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>FreshGuard</h1>
+    <p>Sign in to access your dashboard.</p>
+    <form id="login-form">
+      <label for="username">Username</label>
+      <input id="username" name="username" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button id="submit" type="submit">Sign in</button>
+    </form>
+    <p id="message" role="alert" hidden></p>
+  </main>
+  <script>
+    const API_BASE = "/api/v1";
+    const form = document.getElementById("login-form");
+    const button = document.getElementById("submit");
+    const message = document.getElementById("message");
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      message.hidden = true;
+      button.disabled = true;
+      try {
+        const response = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: form.username.value.trim(),
+            password: form.password.value,
+          }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) throw new Error(result.message || "Invalid username or password");
+        window.location.assign(result.user?.role === "ADMIN" ? "/admin" : "/");
+      } catch (error) {
+        message.textContent = error.message || "Unable to sign in";
+        message.hidden = false;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

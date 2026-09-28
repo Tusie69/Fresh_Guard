@@ -19,10 +19,10 @@ from app.services.qr_category import (
     is_supported_category,
 )
 from app.services.temperature_exposure import (
-    TEMPERATURE_EXPOSURE_LIMIT_SECONDS,
     update_temperature_exposure,
 )
 from app.services.sensor_fault import update_sensor_fault_states
+from app.services.rule_provider import get_freshness_rules
 from app.services.reading_protocol import (
     COMPACT_OPTIONAL_FIELDS,
     COMPACT_REQUIRED_FIELDS,
@@ -103,7 +103,7 @@ def _persist_gas_transition_event(connection, data, food_id, previous_active,
 
 
 def _persist_temperature_exposure_event(connection, data, reading_id,
-                                         exposure_seconds):
+                                         exposure_seconds, rules):
     event_type = "TEMPERATURE_EXPOSURE_EXCEEDED"
     identity = data.get("device_reading_id") or str(reading_id)
     event_id = str(uuid.uuid5(
@@ -113,7 +113,7 @@ def _persist_temperature_exposure_event(connection, data, reading_id,
     payload = {
         "temperature": data["temperature_c"],
         "exposure_seconds": exposure_seconds,
-        "threshold_seconds": TEMPERATURE_EXPOSURE_LIMIT_SECONDS,
+        "threshold_seconds": rules.temperature_exposure_limit_seconds,
     }
     columns = {
         row[1] for row in connection.execute("PRAGMA table_info(events)")
@@ -571,6 +571,9 @@ def create_reading():
 
     connection = get_db_connection()
     try:
+        # Capture one immutable snapshot so all processors and freshness use
+        # identical rules for this reading.
+        rules = get_freshness_rules(connection)
         if device_reading_id is not None:
             # Serialize check/insert pairs; the unique index remains the final
             # protection against duplicate device identities.
@@ -616,7 +619,7 @@ def create_reading():
             if previous_gas_state is not None else False
         )
         gas_anomaly_active = update_gas_anomaly_state(
-            connection, data["device_id"], food_id, data["gas_raw"]
+            connection, data["device_id"], food_id, data["gas_raw"], rules
         )
         sensor_fault_transitions = update_sensor_fault_states(
             connection,
@@ -631,6 +634,7 @@ def create_reading():
             food_id,
             data["temperature_c"],
             data["timestamp"],
+            rules,
         )
         freshness_result = evaluate_freshness(
             temperature_c=data["temperature_c"],
@@ -642,7 +646,8 @@ def create_reading():
             inserted_at=food["inserted_at"] if food else None,
             expiry_date=food["expiry_date"] if food else None,
             temperature_exposure_hours=exposure_update.exposure_seconds / 3600,
-            gas_anomaly_active=gas_anomaly_active
+            gas_anomaly_active=gas_anomaly_active,
+            rules=rules,
         )
 
         freshness_status = freshness_result.status.value
@@ -706,6 +711,7 @@ def create_reading():
                 {**data, "device_reading_id": device_reading_id},
                 cursor.lastrowid,
                 exposure_update.exposure_seconds,
+                rules,
             )
         for transition in sensor_fault_transitions:
             _persist_sensor_fault_event(

@@ -78,9 +78,10 @@ def _persist_gas_transition_event(connection, data, food_id, previous_active,
         payload["consecutive_readings"] = state["consecutive_anomaly_count"]
 
     identity = data.get("device_reading_id") or str(reading_id)
+    food_suffix = f":{food_id}" if food_id is not None else ""
     event_id = str(uuid.uuid5(
         uuid.NAMESPACE_URL,
-        f"freshguard:gas:{data['device_id']}:{identity}:{event_type}",
+        f"freshguard:gas:{data['device_id']}:{identity}{food_suffix}:{event_type}",
     ))
     columns = {
         row[1] for row in connection.execute("PRAGMA table_info(events)")
@@ -103,12 +104,13 @@ def _persist_gas_transition_event(connection, data, food_id, previous_active,
 
 
 def _persist_temperature_exposure_event(connection, data, reading_id,
-                                         exposure_seconds, rules):
+                                         exposure_seconds, rules, food_id=None):
     event_type = "TEMPERATURE_EXPOSURE_EXCEEDED"
     identity = data.get("device_reading_id") or str(reading_id)
+    food_suffix = f":{food_id}" if food_id is not None else ""
     event_id = str(uuid.uuid5(
         uuid.NAMESPACE_URL,
-        f"freshguard:temperature:{data['device_id']}:{identity}:{event_type}",
+        f"freshguard:temperature:{data['device_id']}:{identity}{food_suffix}:{event_type}",
     ))
     payload = {
         "temperature": data["temperature_c"],
@@ -433,6 +435,145 @@ def get_foods():
         connection.close()
 
 
+@readings_bp.get("/foods/active")
+def get_active_foods():
+    connection = get_db_connection()
+    try:
+        rows = connection.execute(
+            """SELECT f.*, a.activated_at
+               FROM active_foods AS a
+               JOIN food_items AS f ON f.food_id = a.food_id
+               ORDER BY a.activated_at, f.id"""
+        ).fetchall()
+        return {"success": True, "data": [_food_dict(row) for row in rows]}, 200
+    finally:
+        connection.close()
+
+
+@readings_bp.get("/foods/active/freshness")
+def get_active_food_freshness():
+    connection = get_db_connection()
+    try:
+        rows = connection.execute(
+            """WITH latest AS (
+                   SELECT s.reading_id, s.food_id, s.freshness_status,
+                          s.freshness_reason, s.evaluated_at,
+                          r.timestamp AS reading_timestamp,
+                          ROW_NUMBER() OVER (
+                              PARTITION BY s.food_id ORDER BY s.id DESC
+                          ) AS row_number
+                   FROM food_freshness_snapshots AS s
+                   JOIN sensor_readings AS r ON r.id = s.reading_id
+               )
+               SELECT f.food_id, f.food_name, f.category, f.inserted_at,
+                      f.expiry_date, f.storage_location, a.activated_at,
+                      latest.reading_id, latest.freshness_status,
+                      latest.freshness_reason, latest.evaluated_at,
+                      latest.reading_timestamp
+               FROM active_foods AS a
+               JOIN food_items AS f ON f.food_id = a.food_id
+               LEFT JOIN latest
+                 ON latest.food_id = f.food_id AND latest.row_number = 1
+               ORDER BY a.activated_at, f.id"""
+        ).fetchall()
+        return {"success": True, "data": [_food_dict(row) for row in rows]}, 200
+    finally:
+        connection.close()
+
+
+@readings_bp.get("/foods/<food_id>/freshness-history")
+def get_food_freshness_history(food_id):
+    limit = request.args.get("limit", default=20, type=int)
+    if limit < 1:
+        return {
+            "success": False,
+            "error": "INVALID_LIMIT",
+            "message": "Limit must be greater than 0",
+        }, 400
+    limit = min(limit, 100)
+    connection = get_db_connection()
+    try:
+        food = connection.execute(
+            "SELECT 1 FROM food_items WHERE food_id = ?", (food_id,)
+        ).fetchone()
+        if food is None:
+            return {
+                "success": False,
+                "error": "FOOD_NOT_FOUND",
+                "message": "Food item not found",
+            }, 404
+        rows = connection.execute(
+            """SELECT s.reading_id, s.food_id, s.freshness_status,
+                      s.freshness_reason, s.evaluated_at,
+                      r.timestamp AS reading_timestamp
+               FROM food_freshness_snapshots AS s
+               JOIN sensor_readings AS r ON r.id = s.reading_id
+               WHERE s.food_id = ?
+               ORDER BY s.id DESC
+               LIMIT ?""",
+            (food_id, limit),
+        ).fetchall()
+        return {"success": True, "data": [_food_dict(row) for row in rows]}, 200
+    finally:
+        connection.close()
+
+
+def _get_food_with_active_state(connection, food_id):
+    return connection.execute(
+        """SELECT f.*, a.activated_at
+           FROM food_items AS f
+           LEFT JOIN active_foods AS a ON a.food_id = f.food_id
+           WHERE f.food_id = ?""",
+        (food_id,),
+    ).fetchone()
+
+
+@readings_bp.post("/foods/<food_id>/activate")
+def activate_food(food_id):
+    connection = get_db_connection()
+    try:
+        food = connection.execute(
+            "SELECT 1 FROM food_items WHERE food_id = ?", (food_id,)
+        ).fetchone()
+        if food is None:
+            return {
+                "success": False,
+                "error": "FOOD_NOT_FOUND",
+                "message": "Food item not found",
+            }, 404
+        activated_at = datetime.now(timezone.utc).isoformat()
+        connection.execute(
+            "INSERT OR IGNORE INTO active_foods (food_id, activated_at) VALUES (?, ?)",
+            (food_id, activated_at),
+        )
+        connection.commit()
+        row = _get_food_with_active_state(connection, food_id)
+        return {"success": True, "active": True, "food": _food_dict(row)}, 200
+    finally:
+        connection.close()
+
+
+@readings_bp.post("/foods/<food_id>/deactivate")
+def deactivate_food(food_id):
+    connection = get_db_connection()
+    try:
+        food = connection.execute(
+            "SELECT 1 FROM food_items WHERE food_id = ?", (food_id,)
+        ).fetchone()
+        if food is None:
+            return {
+                "success": False,
+                "error": "FOOD_NOT_FOUND",
+                "message": "Food item not found",
+            }, 404
+        connection.execute("DELETE FROM active_foods WHERE food_id = ?", (food_id,))
+        connection.commit()
+        row = _get_food_with_active_state(connection, food_id)
+        return {"success": True, "active": False, "food": _food_dict(row)}, 200
+    finally:
+        connection.close()
+
+
 @readings_bp.get("/foods/<food_id>")
 def get_food(food_id):
     connection = get_db_connection()
@@ -574,10 +715,10 @@ def create_reading():
         # Capture one immutable snapshot so all processors and freshness use
         # identical rules for this reading.
         rules = get_freshness_rules(connection)
+        # Serialize the duplicate check, state updates, raw insert, snapshots,
+        # and events in one transaction.
+        connection.execute("BEGIN IMMEDIATE")
         if device_reading_id is not None:
-            # Serialize check/insert pairs; the unique index remains the final
-            # protection against duplicate device identities.
-            connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
                 "SELECT * FROM sensor_readings "
                 "WHERE device_id = ? AND device_reading_id = ?",
@@ -609,120 +750,144 @@ def create_reading():
                     "message": "food_id does not identify a registered food item"
                 }, 404
 
-        if device_reading_id is None:
-            connection.execute("BEGIN IMMEDIATE")
-        previous_gas_state = get_gas_anomaly_state(
-            connection, data["device_id"], food_id
-        )
-        previous_gas_active = bool(
-            previous_gas_state["anomaly_active"]
-            if previous_gas_state is not None else False
-        )
-        gas_anomaly_active = update_gas_anomaly_state(
-            connection, data["device_id"], food_id, data["gas_raw"], rules
-        )
-        sensor_fault_transitions = update_sensor_fault_states(
-            connection,
-            data["device_id"],
-            food_id,
-            data["timestamp"],
-            data,
-        )
-        exposure_update = update_temperature_exposure(
-            connection,
-            data["device_id"],
-            food_id,
-            data["temperature_c"],
-            data["timestamp"],
-            rules,
-        )
-        freshness_result = evaluate_freshness(
-            temperature_c=data["temperature_c"],
-            humidity_pct=data["humidity_pct"],
-            gas_raw=data["gas_raw"],
-            door_open=data["door_open"],
-            open_duration_seconds=open_duration_seconds,
-            category=food["category"] if food else None,
-            inserted_at=food["inserted_at"] if food else None,
-            expiry_date=food["expiry_date"] if food else None,
-            temperature_exposure_hours=exposure_update.exposure_seconds / 3600,
-            gas_anomaly_active=gas_anomaly_active,
-            rules=rules,
-        )
+        active_foods = connection.execute(
+            """SELECT f.food_id, f.food_name, f.category, f.inserted_at,
+                      f.expiry_date
+               FROM active_foods AS a
+               JOIN food_items AS f ON f.food_id = a.food_id
+               ORDER BY a.activated_at, f.id"""
+        ).fetchall()
+        if active_foods:
+            food_contexts = active_foods
+        elif food is not None:
+            food_contexts = [{
+                "food_id": food_id,
+                "food_name": food_id,
+                "category": food["category"],
+                "inserted_at": food["inserted_at"],
+                "expiry_date": food["expiry_date"],
+            }]
+        else:
+            food_contexts = [{
+                "food_id": None,
+                "food_name": None,
+                "category": None,
+                "inserted_at": None,
+                "expiry_date": None,
+            }]
 
-        freshness_status = freshness_result.status.value
-        freshness_reason = freshness_result.reason
+        evaluations = []
+        for context in food_contexts:
+            context_food_id = context["food_id"]
+            previous_gas_state = get_gas_anomaly_state(
+                connection, data["device_id"], context_food_id
+            )
+            previous_gas_active = bool(
+                previous_gas_state["anomaly_active"]
+                if previous_gas_state is not None else False
+            )
+            gas_anomaly_active = update_gas_anomaly_state(
+                connection, data["device_id"], context_food_id,
+                data["gas_raw"], rules
+            )
+            sensor_fault_transitions = update_sensor_fault_states(
+                connection, data["device_id"], context_food_id,
+                data["timestamp"], data,
+            )
+            exposure_update = update_temperature_exposure(
+                connection, data["device_id"], context_food_id,
+                data["temperature_c"], data["timestamp"], rules,
+            )
+            freshness_result = evaluate_freshness(
+                temperature_c=data["temperature_c"],
+                humidity_pct=data["humidity_pct"],
+                gas_raw=data["gas_raw"],
+                door_open=data["door_open"],
+                open_duration_seconds=open_duration_seconds,
+                category=context["category"],
+                inserted_at=context["inserted_at"],
+                expiry_date=context["expiry_date"],
+                temperature_exposure_hours=exposure_update.exposure_seconds / 3600,
+                gas_anomaly_active=gas_anomaly_active,
+                rules=rules,
+            )
+            evaluations.append({
+                "context": context,
+                "previous_gas_active": previous_gas_active,
+                "gas_anomaly_active": gas_anomaly_active,
+                "sensor_fault_transitions": sensor_fault_transitions,
+                "exposure_update": exposure_update,
+                "freshness": freshness_result,
+            })
+
+        worst = max(evaluations, key=lambda item: item["freshness"].severity)
+        worst_severity = worst["freshness"].severity
+        worst_reasons = [
+            item for item in evaluations
+            if item["freshness"].severity == worst_severity
+            and item["freshness"].reason
+        ]
+        if worst_reasons and active_foods:
+            freshness_reason = "; ".join(
+                f"{item['context']['food_name']}: {item['freshness'].reason}"
+                for item in worst_reasons
+            )[:512]
+        else:
+            freshness_reason = worst["freshness"].reason
+        freshness_status = worst["freshness"].status.value
         freshness_evaluated_at = datetime.now(timezone.utc).isoformat()
 
-        try:
-            cursor = connection.execute(
-                """
-                INSERT INTO sensor_readings (
-                    device_id, timestamp, temperature_c, humidity_pct, gas_raw,
-                    door_open, open_duration_seconds, food_id, device_reading_id,
-                    freshness_status, freshness_reason, freshness_evaluated_at,
-                    gas_anomaly_active
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    data["device_id"], data["timestamp"], data["temperature_c"],
-                    data["humidity_pct"], data["gas_raw"], int(data["door_open"]),
-                    open_duration_seconds, food_id, device_reading_id,
-                    freshness_status, freshness_reason, freshness_evaluated_at,
-                    int(gas_anomaly_active)
-                )
+        cursor = connection.execute(
+            """
+            INSERT INTO sensor_readings (
+                device_id, timestamp, temperature_c, humidity_pct, gas_raw,
+                door_open, open_duration_seconds, food_id, device_reading_id,
+                freshness_status, freshness_reason, freshness_evaluated_at,
+                gas_anomaly_active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                data["device_id"], data["timestamp"], data["temperature_c"],
+                data["humidity_pct"], data["gas_raw"], int(data["door_open"]),
+                open_duration_seconds, food_id, device_reading_id,
+                freshness_status, freshness_reason, freshness_evaluated_at,
+                int(any(item["gas_anomaly_active"] for item in evaluations))
             )
-        except sqlite3.IntegrityError as error:
-            connection.rollback()
-            if device_reading_id is None:
-                raise
-            expected_unique_error = (
-                "UNIQUE constraint failed: "
-                "sensor_readings.device_id, sensor_readings.device_reading_id"
-            )
-            if str(error) != expected_unique_error:
-                raise
-            existing = connection.execute(
-                "SELECT * FROM sensor_readings "
-                "WHERE device_id = ? AND device_reading_id = ?",
-                (data["device_id"], device_reading_id)
-            ).fetchone()
-            if existing is None:
-                raise
-            if _reading_payload_matches(existing, canonical_payload):
-                return _reading_response(existing, True), 200
-            return {
-                "success": False,
-                "error": "DEVICE_READING_ID_CONFLICT",
-                "message": "device_reading_id was already used with a different payload",
-                "device_reading_id": device_reading_id
-            }, 409
-        _persist_gas_transition_event(
-            connection,
-            {**data, "device_reading_id": device_reading_id},
-            food_id,
-            previous_gas_active,
-            gas_anomaly_active,
-            cursor.lastrowid,
         )
-        if exposure_update.exceeded_transition:
-            _persist_temperature_exposure_event(
-                connection,
-                {**data, "device_reading_id": device_reading_id},
-                cursor.lastrowid,
-                exposure_update.exposure_seconds,
-                rules,
+        reading_id = cursor.lastrowid
+        for item in evaluations:
+            context = item["context"]
+            context_food_id = context["food_id"]
+            event_data = {**data, "device_reading_id": device_reading_id}
+            _persist_gas_transition_event(
+                connection, event_data, context_food_id,
+                item["previous_gas_active"], item["gas_anomaly_active"], reading_id,
             )
-        for transition in sensor_fault_transitions:
-            _persist_sensor_fault_event(
-                connection,
-                {**data, "device_reading_id": device_reading_id},
-                cursor.lastrowid,
-                transition,
-            )
+            exposure_update = item["exposure_update"]
+            if exposure_update.exceeded_transition:
+                _persist_temperature_exposure_event(
+                    connection, event_data, reading_id,
+                    exposure_update.exposure_seconds, rules, context_food_id,
+                )
+            for transition in item["sensor_fault_transitions"]:
+                _persist_sensor_fault_event(
+                    connection, event_data, reading_id, transition,
+                )
+            if context_food_id is not None and active_foods:
+                connection.execute(
+                    """INSERT INTO food_freshness_snapshots
+                       (reading_id, food_id, freshness_status, freshness_reason, evaluated_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (
+                        reading_id, context_food_id,
+                        item["freshness"].status.value,
+                        item["freshness"].reason,
+                        freshness_evaluated_at,
+                    ),
+                )
         connection.commit()
         stored = connection.execute(
-            "SELECT * FROM sensor_readings WHERE id = ?", (cursor.lastrowid,)
+            "SELECT * FROM sensor_readings WHERE id = ?", (reading_id,)
         ).fetchone()
         if device_reading_id is not None:
             return _reading_response(stored, False), 201

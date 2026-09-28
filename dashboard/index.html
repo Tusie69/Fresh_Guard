@@ -71,6 +71,25 @@
         .status-unavailable { color: #65736e; }
 
         .freshness-reason { margin: 10px 0 0; line-height: 1.5; }
+        .food-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .button { padding: 9px 13px; border: 0; border-radius: 7px; color: #fff; background: #176b52; cursor: pointer; font: inherit; font-weight: 700; }
+        .button.secondary { color: #31564a; background: #e5f0eb; }
+        .button:disabled { opacity: .55; cursor: wait; }
+        dialog { width: min(520px, calc(100% - 28px)); border: 0; border-radius: 12px; padding: 22px; color: #18312b; box-shadow: 0 12px 40px rgb(20 60 45 / 25%); }
+        dialog::backdrop { background: rgb(10 35 25 / 45%); }
+        .scanner-preview { width: 100%; max-height: 300px; border-radius: 8px; background: #10241d; object-fit: cover; }
+        .scanner-status { min-height: 24px; margin: 10px 0; color: #52665f; }
+        .scanner-status.error { color: #b42318; }
+        .scanner-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 16px; }
+        .qr-result { margin: 12px 0; padding: 12px; border-radius: 8px; background: #e8f2ed; }
+        .qr-result p { margin: 5px 0; }
+        .scanner-form { display: grid; gap: 10px; }
+        .scanner-form label { color: #52665f; font-size: .86rem; font-weight: 600; }
+        .scanner-form input { width: 100%; margin-top: 5px; padding: 9px; border: 1px solid #bfd2c9; border-radius: 6px; font: inherit; }
+        .active-foods { display: grid; gap: 12px; }
+        .active-food { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid #dce7e2; border-radius: 9px; background: #f7faf8; }
+        .active-food h3 { margin: 0 0 5px; color: #176b52; }
+        .active-food p { margin: 3px 0; color: #52665f; }
         .alert-panel { border-left: 4px solid #91a39b; }
         .alert-panel.is-alert { border-left-color: #d97706; background: #fffaf0; }
         .alert-panel.is-critical { border-left-color: #c83225; background: #fff7f6; }
@@ -147,7 +166,7 @@
         </section>
 
         <section>
-            <h2>Food Information</h2>
+            <div class="food-heading"><h2>Food Information</h2><button class="button" id="scan-food-qr" type="button">Scan Food QR</button></div>
             <p id="food-state">Loading...</p>
             <div class="food-grid">
                 <div class="food-field"><span class="label">Food Name</span><span class="value" id="food-name">N/A</span></div>
@@ -165,6 +184,12 @@
             <h2>Storage</h2>
             <p><strong>Stored:</strong> <span id="storage-inserted">N/A</span></p>
             <p><strong>Expiry:</strong> <span id="storage-expiry">N/A</span></p>
+        </section>
+
+        <section class="wide">
+            <h2>Foods in Fridge</h2>
+            <p id="active-foods-summary" class="muted">Foods in Fridge: 0 · Overall: Waiting for Reading</p>
+            <div id="active-foods" class="active-foods"><p class="muted">Loading active foods...</p></div>
         </section>
 
         <section class="alert-panel wide" id="alert-panel" aria-live="polite">
@@ -186,6 +211,34 @@
             </div>
         </section>
     </main>
+
+    <dialog id="qr-dialog" aria-labelledby="qr-dialog-title">
+        <h2 id="qr-dialog-title">Scan Food QR</h2>
+        <video id="qr-video" class="scanner-preview" playsinline muted hidden></video>
+        <canvas id="qr-canvas" hidden></canvas>
+        <p id="qr-status" class="scanner-status">Preparing scanner…</p>
+        <div id="qr-result" class="qr-result" hidden>
+            <p><strong>QR Code:</strong> <span id="qr-code-value"></span></p>
+            <p><strong>Category:</strong> <span id="qr-category-value"></span></p>
+        </div>
+        <form id="food-form" class="scanner-form" hidden>
+            <label>Food Name<input id="food-name-input" name="food_name" required maxlength="200"></label>
+            <label>Inserted At<input id="food-inserted-input" name="inserted_at" type="date" required></label>
+            <label>Quantity<input id="food-quantity-input" name="quantity" type="number" min="0" step="any"></label>
+            <label>Manufacture Date<input id="food-manufacture-input" name="manufacture_date" type="date"></label>
+            <label>Expiry Date<input id="food-expiry-input" name="expiry_date" type="date"></label>
+            <label>Storage Location<input id="food-location-input" name="storage_location" maxlength="200"></label>
+            <div class="scanner-actions"><button class="button" id="create-food" type="submit">Create Food</button></div>
+        </form>
+        <div id="food-success" class="qr-result" hidden></div>
+        <div class="scanner-actions"><button class="button secondary" id="close-qr" type="button">Close</button></div>
+    </dialog>
+
+    <dialog id="food-history-dialog" aria-labelledby="food-history-title">
+        <h2 id="food-history-title">Food Freshness History</h2>
+        <div class="table-wrap"><table><thead><tr><th>Time</th><th>Status</th><th>Reason</th></tr></thead><tbody id="food-history-body"></tbody></table></div>
+        <div class="scanner-actions"><button class="button secondary" id="close-food-history" type="button">Close</button></div>
+    </dialog>
 
     <script>
         const API_BASE_URL = "/api/v1";
@@ -419,6 +472,131 @@
             }
         }
 
+        function renderActiveFoods(foods) {
+            const root = byId("active-foods");
+            root.replaceChildren();
+            const summary = byId("active-foods-summary");
+            if (!foods.length) {
+                summary.textContent = "Foods in Fridge: 0 · Overall: Waiting for Reading";
+                const empty = document.createElement("p");
+                empty.className = "muted";
+                empty.textContent = "No foods in fridge.";
+                root.appendChild(empty);
+                return;
+            }
+            foods.forEach(food => {
+                const card = document.createElement("article");
+                card.className = "active-food";
+                const details = document.createElement("div");
+                const title = document.createElement("h3");
+                title.textContent = food.food_name;
+                const category = document.createElement("p");
+                category.textContent = food.category;
+                const inserted = document.createElement("p");
+                inserted.textContent = `Inserted: ${food.inserted_at}`;
+                const id = document.createElement("p");
+                id.textContent = `Food ID: ${food.food_id}`;
+                const status = document.createElement("p");
+                status.textContent = `Latest Freshness: ${food.freshness_status || "WAITING FOR READING"}`;
+                const reason = document.createElement("p");
+                reason.textContent = `Reason: ${food.freshness_reason || "No persisted reading yet."}`;
+                const evaluated = document.createElement("p");
+                const evaluatedAt = food.evaluated_at ? new Date(food.evaluated_at) : null;
+                const readingAt = food.reading_timestamp ? new Date(food.reading_timestamp) : null;
+                const deviceStale = readingAt && !Number.isNaN(readingAt.getTime())
+                    && Date.now() - readingAt.getTime() > STALE_AFTER_MS;
+                evaluated.textContent = `Last Evaluated: ${evaluatedAt && !Number.isNaN(evaluatedAt.getTime()) ? evaluatedAt.toLocaleString("vi-VN") : "N/A"}${deviceStale ? " · Device stale" : ""}`;
+                details.append(title, category, inserted, id, status, reason, evaluated);
+                const actions = document.createElement("div");
+                const history = document.createElement("button");
+                history.className = "button secondary";
+                history.type = "button";
+                history.textContent = "View History";
+                history.addEventListener("click", () => showFoodHistory(food.food_id, food.food_name));
+                const remove = document.createElement("button");
+                remove.className = "button secondary";
+                remove.type = "button";
+                remove.style.marginTop = "8px";
+                remove.textContent = "Remove from Fridge";
+                remove.addEventListener("click", () => deactivateActiveFood(food.food_id));
+                actions.append(history, remove);
+                card.append(details, actions);
+                root.appendChild(card);
+            });
+            const severity = { "Fresh / Normal": 0, "Use Soon": 1, "Check Food": 2 };
+            const known = foods.filter(food => food.freshness_status);
+            const worst = known.reduce((current, food) => (
+                !current || severity[food.freshness_status] > severity[current]
+                    ? food.freshness_status : current
+            ), null);
+            const waiting = foods.length - known.length;
+            const overall = worst || "Waiting for Reading";
+            summary.textContent = `Foods in Fridge: ${foods.length} · Overall: ${overall}${waiting ? ` · ${waiting} food waiting for reading` : ""}`;
+        }
+
+        async function loadActiveFoods() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/foods/active/freshness`);
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.message || "Unable to load active foods");
+                renderActiveFoods(result.data || []);
+            } catch (error) {
+                const root = byId("active-foods");
+                root.replaceChildren();
+                const message = document.createElement("p");
+                message.className = "muted";
+                message.textContent = "Active foods unavailable";
+                root.appendChild(message);
+                console.error("Failed to load active foods:", error);
+            }
+        }
+
+        async function deactivateActiveFood(foodId) {
+            if (!window.confirm("Remove this food from the fridge? The food history will be preserved.")) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/foods/${encodeURIComponent(foodId)}/deactivate`, { method: "POST" });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || !result.success) throw new Error(result.message || result.error || "Unable to remove food");
+                await loadActiveFoods();
+            } catch (error) {
+                showMessage(error.message, true);
+            }
+        }
+
+        async function showFoodHistory(foodId, foodName) {
+            const dialog = byId("food-history-dialog");
+            const body = byId("food-history-body");
+            byId("food-history-title").textContent = `${foodName} — Freshness History`;
+            body.replaceChildren();
+            const loading = body.insertRow().insertCell();
+            loading.colSpan = 3;
+            loading.textContent = "Loading...";
+            dialog.showModal();
+            try {
+                const response = await fetch(`${API_BASE_URL}/foods/${encodeURIComponent(foodId)}/freshness-history?limit=20`);
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.message || "Unable to load history");
+                body.replaceChildren();
+                if (!result.data.length) {
+                    const row = body.insertRow();
+                    row.insertCell().textContent = "No freshness snapshots";
+                    row.cells[0].colSpan = 3;
+                    return;
+                }
+                result.data.forEach(snapshot => {
+                    const row = body.insertRow();
+                    row.insertCell().textContent = snapshot.reading_timestamp || snapshot.evaluated_at;
+                    row.insertCell().textContent = snapshot.freshness_status;
+                    row.insertCell().textContent = snapshot.freshness_reason;
+                });
+            } catch (error) {
+                body.replaceChildren();
+                const row = body.insertRow();
+                row.insertCell().textContent = error.message;
+                row.cells[0].colSpan = 3;
+            }
+        }
+
         function renderNoData() {
             setUnavailableData();
             byId("temperature").textContent = "N/A";
@@ -503,6 +681,7 @@
                 await Promise.all([
                     loadFood(reading.food_id),
                     loadHistory(),
+                    loadActiveFoods(),
                 ]);
 
                 hasLoadedData = true;
@@ -522,7 +701,213 @@
             }
         }
 
+        // Phase 1 QR flow: one fixed category mapping, then the existing food API.
+        const QR_CATEGORY_MAP = Object.freeze({
+            "FG-MEAT": "MEAT",
+            "FG-DAIRY": "DAIRY",
+            "FG-VEGETABLE": "VEGETABLE",
+            "FG-FRUIT": "FRUIT",
+            "FG-COOKED": "COOKED_FOOD",
+        });
+        let qrStream = null;
+        let qrFrameRequest = null;
+        let qrCode = null;
+        let qrSubmitInProgress = false;
+
+        function setQrStatus(message, error = false) {
+            const status = byId("qr-status");
+            status.textContent = message;
+            status.classList.toggle("error", error);
+        }
+
+        function stopQrCamera() {
+            if (qrFrameRequest !== null) {
+                cancelAnimationFrame(qrFrameRequest);
+                qrFrameRequest = null;
+            }
+            if (qrStream) {
+                qrStream.getTracks().forEach(track => track.stop());
+                qrStream = null;
+            }
+            const video = byId("qr-video");
+            video.pause();
+            video.srcObject = null;
+            video.hidden = true;
+        }
+
+        function resetQrDialog() {
+            stopQrCamera();
+            qrCode = null;
+            qrSubmitInProgress = false;
+            byId("qr-status").classList.remove("error");
+            byId("qr-result").hidden = true;
+            byId("food-form").hidden = true;
+            byId("food-success").hidden = true;
+            byId("food-form").reset();
+            byId("create-food").disabled = false;
+        }
+
+        function loadQrLibrary() {
+            if (window.jsQR) return Promise.resolve();
+            if (window._freshguardQrLibraryPromise) return window._freshguardQrLibraryPromise;
+            window._freshguardQrLibraryPromise = new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+                script.async = true;
+                script.onload = () => window.jsQR ? resolve() : reject(new Error("QR scanner unavailable"));
+                script.onerror = () => reject(new Error("Unable to load QR scanner"));
+                document.head.appendChild(script);
+            });
+            return window._freshguardQrLibraryPromise;
+        }
+
+        function showQrResult(value) {
+            qrCode = value;
+            stopQrCamera();
+            byId("qr-code-value").textContent = value;
+            byId("qr-category-value").textContent = QR_CATEGORY_MAP[value];
+            byId("qr-result").hidden = false;
+            byId("food-form").hidden = false;
+            const localDate = new Date();
+            localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+            byId("food-inserted-input").value = localDate.toISOString().slice(0, 10);
+            setQrStatus("QR recognized. Enter food details.");
+        }
+
+        function scanQrFrame() {
+            if (!qrStream) return;
+            const video = byId("qr-video");
+            const canvas = byId("qr-canvas");
+            if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext("2d", { willReadFrequently: true });
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const image = context.getImageData(0, 0, canvas.width, canvas.height);
+                const result = window.jsQR(image.data, image.width, image.height, { inversionAttempts: "dontInvert" });
+                if (result) {
+                    const value = String(result.data || "").trim();
+                    if (Object.prototype.hasOwnProperty.call(QR_CATEGORY_MAP, value)) {
+                        showQrResult(value);
+                        return;
+                    }
+                    setQrStatus("Invalid FreshGuard QR", true);
+                }
+            }
+            qrFrameRequest = requestAnimationFrame(scanQrFrame);
+        }
+
+        async function openQrScanner() {
+            resetQrDialog();
+            byId("qr-dialog").showModal();
+            setQrStatus("Requesting camera permission...");
+            try {
+                await loadQrLibrary();
+                if (!navigator.mediaDevices?.getUserMedia) {
+                    throw new Error("Camera access is not supported in this browser");
+                }
+                qrStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: "environment" } },
+                    audio: false,
+                });
+                const video = byId("qr-video");
+                video.srcObject = qrStream;
+                video.hidden = false;
+                await video.play();
+                setQrStatus("Point the camera at an approved FreshGuard QR.");
+                scanQrFrame();
+            } catch (error) {
+                stopQrCamera();
+                setQrStatus(error.name === "NotAllowedError" ? "Camera permission denied." : error.message, true);
+            }
+        }
+
+        async function createFoodFromQr(event) {
+            event.preventDefault();
+            if (!qrCode || qrSubmitInProgress) return;
+            qrSubmitInProgress = true;
+            byId("create-food").disabled = true;
+            setQrStatus("Creating food...");
+            const payload = {
+                qr_code: qrCode,
+                food_name: byId("food-name-input").value.trim(),
+                inserted_at: byId("food-inserted-input").value,
+            };
+            const optional = [
+                ["quantity", byId("food-quantity-input").value],
+                ["manufacture_date", byId("food-manufacture-input").value],
+                ["expiry_date", byId("food-expiry-input").value],
+                ["storage_location", byId("food-location-input").value.trim()],
+            ];
+            optional.forEach(([key, value]) => {
+                if (value !== "") payload[key] = key === "quantity" ? Number(value) : value;
+            });
+            try {
+                const response = await fetch(`${API_BASE_URL}/foods`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || !result.success || !result.food) {
+                    throw new Error(result.message || result.error || `Food creation failed (${response.status})`);
+                }
+                const food = result.food;
+                byId("food-form").hidden = true;
+                const success = byId("food-success");
+                success.replaceChildren();
+                const title = document.createElement("strong");
+                title.textContent = "Food Added";
+                success.appendChild(title);
+                [["Food ID", food.food_id], ["Food Name", food.food_name],
+                 ["Category", food.category], ["Inserted At", food.inserted_at]].forEach(([label, value]) => {
+                    const line = document.createElement("p");
+                    const name = document.createElement("strong");
+                    name.textContent = `${label}: `;
+                    line.append(name, document.createTextNode(value ?? ""));
+                    success.appendChild(line);
+                });
+                byId("food-success").hidden = false;
+                setQrStatus("Food created successfully.");
+                const activate = document.createElement("button");
+                activate.className = "button";
+                activate.type = "button";
+                activate.textContent = "Add to Fridge";
+                activate.addEventListener("click", async () => {
+                    activate.disabled = true;
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/foods/${encodeURIComponent(food.food_id)}/activate`, { method: "POST" });
+                        const activation = await response.json().catch(() => ({}));
+                        if (!response.ok || !activation.success) throw new Error(activation.message || activation.error || "Unable to activate food");
+                        activate.textContent = "Added to Fridge";
+                        setQrStatus("Food is active in the fridge.");
+                        await loadActiveFoods();
+                    } catch (error) {
+                        activate.disabled = false;
+                        setQrStatus(error.message, true);
+                    }
+                });
+                byId("food-success").appendChild(activate);
+            } catch (error) {
+                setQrStatus(error.message, true);
+                byId("create-food").disabled = false;
+            } finally {
+                qrSubmitInProgress = false;
+            }
+        }
+
+        byId("scan-food-qr").addEventListener("click", openQrScanner);
+        byId("close-qr").addEventListener("click", () => {
+            stopQrCamera();
+            byId("qr-dialog").close();
+        });
+        byId("qr-dialog").addEventListener("cancel", stopQrCamera);
+        byId("food-form").addEventListener("submit", createFoodFromQr);
+        byId("close-food-history").addEventListener("click", () => byId("food-history-dialog").close());
+        window.addEventListener("beforeunload", stopQrCamera);
+
         loadDashboard();
+        loadActiveFoods();
         setInterval(loadDashboard, DASHBOARD_REFRESH_MS);
     </script>
 </body>

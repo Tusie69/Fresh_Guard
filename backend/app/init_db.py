@@ -86,6 +86,28 @@ def init_db():
     """)
 
     connection.execute("""
+        CREATE TABLE IF NOT EXISTS active_foods (
+            food_id TEXT PRIMARY KEY,
+            activated_at TEXT NOT NULL,
+            FOREIGN KEY (food_id) REFERENCES food_items(food_id)
+        )
+    """)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS food_freshness_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reading_id INTEGER NOT NULL,
+            food_id TEXT NOT NULL,
+            freshness_status TEXT NOT NULL,
+            freshness_reason TEXT NOT NULL,
+            evaluated_at TEXT NOT NULL,
+            UNIQUE (reading_id, food_id),
+            FOREIGN KEY (reading_id) REFERENCES sensor_readings(id),
+            FOREIGN KEY (food_id) REFERENCES food_items(food_id)
+        )
+    """)
+
+    connection.execute("""
         CREATE TABLE IF NOT EXISTS temperature_exposure_state (
             device_id TEXT NOT NULL,
             food_id TEXT NOT NULL DEFAULT '',

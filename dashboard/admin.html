@@ -49,7 +49,25 @@
       <button data-view="overview" class="active">Overview</button><button data-view="rules">Freshness Rules</button><button data-view="history">Rule History</button><button data-view="users">Users</button><button data-view="user-audit">User Audit</button><button data-view="foods">Foods</button><button data-view="readings">Readings</button><button data-view="events">Events</button><button onclick="window.location.assign('/')">Back to User Dashboard</button>
     </nav></aside>
     <main><p id="message" class="notice" role="status" hidden></p>
-      <section id="view-overview" class="view"><div class="panel"><h2>Overview</h2><p class="muted">Current global freshness configuration and recent administration activity.</p><div class="cards"><div class="stat">Total users<strong id="user-count">—</strong></div><div class="stat">Active users<strong id="active-user-count">—</strong></div><div class="stat">Readings<strong id="reading-count">—</strong></div><div class="stat">Foods<strong id="food-count">—</strong></div><div class="stat">Events<strong id="event-count">—</strong></div><div class="stat">Editable rules<strong id="editable-count">—</strong></div><div class="stat">Locked rules<strong id="locked-count">—</strong></div><div class="stat">Current admin<strong id="overview-admin">—</strong></div></div><div class="rule-section"><h3>Recent rule changes</h3><div id="recent-changes" class="muted">Loading…</div></div><div class="rule-section"><p class="muted">Latest reading: <strong id="latest-reading">—</strong> · Freshness: <strong id="latest-freshness">—</strong></p></div></div></section>
+      <section id="view-overview" class="view"><div class="panel"><h2>Overview</h2><p class="muted">Current global freshness configuration and recent administration activity.</p><div class="cards"><div class="stat">Total users<strong id="user-count">—</strong></div><div class="stat">Active users<strong id="active-user-count">—</strong></div><div class="stat">Readings<strong id="reading-count">—</strong></div><div class="stat">Foods<strong id="food-count">—</strong></div><div class="stat">Events<strong id="event-count">—</strong></div><div class="stat">Editable rules<strong id="editable-count">—</strong></div><div class="stat">Locked rules<strong id="locked-count">—</strong></div><div class="stat">Current admin<strong id="overview-admin">—</strong></div>
+      <div class="stat">Temperature<strong id="overview-temperature">Loading...</strong></div>
+      <div class="stat">Humidity<strong id="overview-humidity">Loading...</strong></div>
+      <div class="stat">Gas Raw<strong id="overview-gas">Loading...</strong></div>
+      <div class="stat">Door<strong id="overview-door">Loading...</strong></div>
+    </div>
+    <div class="rule-section">
+      <h3>Recent rule changes</h3>
+      <div id="recent-changes" class="muted">Loading…</div>
+    </div>
+    <div class="rule-section">
+      <p class="muted">
+        Freshness: <strong id="overview-freshness">Loading...</strong>
+        · Reason: <strong id="overview-reason">Loading...</strong>
+        · Observed: <strong id="overview-observed-at">Loading...</strong>
+      </p>
+    </div>
+  </div>
+</section>
       <section id="view-rules" class="view" hidden><div class="panel"><h2>Freshness Rules</h2><p class="muted">Temperature hot threshold and exposure limit are editable with a mandatory state reset. Other temperature, Gas and Door rules remain locked.</p><p class="notice warn">Changing temperature stateful rules will reset all active temperature exposure state. Historical readings and events remain unchanged.</p><p class="notice warn">Only editable stateless rules will be reset. Temperature, Gas and Door remain locked.</p><div id="rules-form"></div><div class="actions"><button id="save" disabled>Save Changes</button><button id="reset-defaults" class="secondary">Reset Defaults</button><button id="reload" class="secondary">Cancel / Reload</button><label for="reason" class="muted">Reason</label><input id="reason" placeholder="Why is this change needed?" required></div></div></section>
       <section id="view-history" class="view" hidden><div class="panel"><h2>Rule History</h2><p class="muted">Newest changes appear first.</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Admin</th><th>Role</th><th>Rule</th><th>Old</th><th>New</th><th>Reason</th></tr></thead><tbody id="history-body"></tbody></table></div></div></section>
       <section id="view-user-audit" class="view" hidden><div class="panel"><h2>User Audit</h2><p class="muted">Privileged account changes, newest first.</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Admin</th><th>Target</th><th>Action</th><th>Old</th><th>New</th><th>Reason</th></tr></thead><tbody id="user-audit-body"></tbody></table></div></div></section>

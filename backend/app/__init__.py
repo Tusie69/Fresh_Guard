@@ -8,6 +8,11 @@ from flask_cors import CORS
 
 def create_app():
     app = Flask(__name__)
+    # Upgrade existing databases and seed newly introduced rules on every
+    # startup. init_db is idempotent and preserves configured rule values.
+    from app.init_db import init_db
+
+    init_db()
     app.config["SECRET_KEY"] = os.environ.get(
         "FRESHGUARD_SECRET_KEY", secrets.token_hex(32)
     )

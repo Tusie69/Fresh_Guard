@@ -38,6 +38,8 @@
         }
 
         .connection p { margin: 3px 0; }
+        .source-label { margin: -10px 0 14px; color: #61736c; font-size: .9rem; }
+        .stale-banner { margin: 0 0 18px; padding: 13px 16px; color: #8d2018; background: #fff0ee; border: 1px solid #f2c4bf; border-radius: 8px; font-weight: 700; }
         .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 
         section {
@@ -119,11 +121,22 @@
     <main class="grid">
         <section>
             <h2>Current Environment</h2>
+            <p class="source-label">Source: <strong id="reading-device">N/A</strong></p>
             <div class="sensor-grid">
                 <div class="metric"><span class="label">Temperature</span><span class="value sensor-value" id="temperature">Data Unavailable</span></div>
                 <div class="metric"><span class="label">Humidity</span><span class="value sensor-value" id="humidity">Data Unavailable</span></div>
                 <div class="metric"><span class="label">Gas</span><span class="value sensor-value" id="gas">Data Unavailable</span></div>
                 <div class="metric"><span class="label">Door</span><span class="value sensor-value" id="door">Data Unavailable</span></div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Reading Source</h2>
+            <div class="food-grid">
+                <div class="food-field"><span class="label">Device</span><span class="value" id="source-device">N/A</span></div>
+                <div class="food-field"><span class="label">Reading ID</span><span class="value" id="source-reading-id">N/A</span></div>
+                <div class="food-field"><span class="label">Captured</span><span class="value" id="source-captured">N/A</span></div>
+                <div class="food-field"><span class="label">Last Reading</span><span class="value" id="source-age">N/A</span></div>
             </div>
         </section>
 
@@ -175,7 +188,10 @@
     </main>
 
     <script>
-        const API_BASE_URL = "http://127.0.0.1:5000/api/v1";
+        const API_BASE_URL = "/api/v1";
+        const DASHBOARD_DEVICE_ID = "FG-ESP32-01";
+        const DASHBOARD_REFRESH_MS = 5000;
+        const STALE_AFTER_MS = 90000;
         const UNAVAILABLE = "Data Unavailable";
         let refreshInProgress = false;
         let hasLoadedData = false;
@@ -216,16 +232,36 @@
         }
 
         function setUnavailableData() {
+            const staleBanner = byId("stale-banner");
+            if (staleBanner) staleBanner.remove();
             byId("temperature").textContent = UNAVAILABLE;
             byId("humidity").textContent = UNAVAILABLE;
             byId("gas").textContent = UNAVAILABLE;
             byId("door").textContent = UNAVAILABLE;
+            byId("reading-device").textContent = "N/A";
+            byId("source-device").textContent = "N/A";
+            byId("source-reading-id").textContent = "N/A";
+            byId("source-captured").textContent = "N/A";
+            byId("source-age").textContent = "N/A";
             byId("freshness-status").textContent = UNAVAILABLE;
             byId("freshness-status").className = getFreshnessClass(null);
             byId("freshness-reason").textContent = "N/A";
             byId("alert-reason").textContent = "N/A";
             byId("alert-panel").className = "alert-panel wide";
             setFoodFields(null);
+        }
+
+        function setLiveUnavailable(message) {
+            byId("temperature").textContent = "N/A";
+            byId("humidity").textContent = "N/A";
+            byId("gas").textContent = "N/A";
+            byId("door").textContent = "N/A";
+            byId("freshness-status").textContent = "DEVICE STALE";
+            byId("freshness-status").className = getFreshnessClass(null);
+            byId("freshness-reason").textContent = message;
+            byId("alert-heading").textContent = "DEVICE STALE";
+            byId("alert-reason").textContent = message;
+            byId("alert-panel").className = "alert-panel wide";
         }
 
         function showMessage(message, isError = false) {
@@ -285,6 +321,21 @@
             byId("door").textContent = typeof reading.door_open === "boolean"
                 ? (reading.door_open ? "OPEN" : "CLOSED")
                 : UNAVAILABLE;
+            const capturedAt = reading.timestamp ? new Date(reading.timestamp) : null;
+            const ageMs = capturedAt && !Number.isNaN(capturedAt.getTime())
+                ? Math.max(0, Date.now() - capturedAt.getTime()) : null;
+            byId("reading-device").textContent = formatFoodField(reading.device_id);
+            byId("source-device").textContent = formatFoodField(reading.device_id);
+            byId("source-reading-id").textContent = formatFoodField(reading.device_reading_id);
+            byId("source-captured").textContent = capturedAt && !Number.isNaN(capturedAt.getTime())
+                ? capturedAt.toLocaleString("vi-VN") : formatFoodField(reading.timestamp);
+            byId("source-age").textContent = ageMs === null ? "N/A" : formatAge(ageMs);
+            setStaleState(ageMs);
+
+            if (ageMs === null || ageMs > STALE_AFTER_MS) {
+                setLiveUnavailable("Latest device reading is stale");
+                return;
+            }
 
             const freshness = reading.freshness;
             const status = freshness?.status;
@@ -304,6 +355,26 @@
                 byId("alert-heading").textContent = "CHECK FOOD";
             } else {
                 byId("alert-heading").textContent = "STATUS DETAILS";
+            }
+        }
+
+        function formatAge(ageMs) {
+            const seconds = Math.floor(ageMs / 1000);
+            if (seconds < 60) return `${seconds} seconds ago`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} minutes ago`;
+            return `${Math.floor(minutes / 60)} hours ago`;
+        }
+
+        function setStaleState(ageMs) {
+            const existing = byId("stale-banner");
+            if (existing) existing.remove();
+            if (ageMs !== null && ageMs > STALE_AFTER_MS) {
+                const banner = document.createElement("p");
+                banner.id = "stale-banner";
+                banner.className = "stale-banner";
+                banner.textContent = "STALE DATA — No recent device data";
+                byId("data-message").before(banner);
             }
         }
 
@@ -334,7 +405,7 @@
 
         async function loadHistory() {
             try {
-                const response = await fetch(`${API_BASE_URL}/readings?limit=20`);
+                const response = await fetch(`${API_BASE_URL}/readings?device_id=${encodeURIComponent(DASHBOARD_DEVICE_ID)}&limit=20`);
                 const result = await response.json();
                 if (!response.ok || !result.success) {
                     throw new Error("Unable to load history");
@@ -350,6 +421,19 @@
 
         function renderNoData() {
             setUnavailableData();
+            byId("temperature").textContent = "N/A";
+            byId("humidity").textContent = "N/A";
+            byId("gas").textContent = "N/A";
+            byId("door").textContent = "N/A";
+            byId("reading-device").textContent = DASHBOARD_DEVICE_ID;
+            byId("source-device").textContent = DASHBOARD_DEVICE_ID;
+            byId("source-reading-id").textContent = "N/A";
+            byId("source-captured").textContent = "N/A";
+            byId("source-age").textContent = "Never";
+            byId("freshness-status").textContent = "Waiting for device data";
+            byId("freshness-reason").textContent = "No device reading available";
+            byId("alert-heading").textContent = "DEVICE WAITING";
+            byId("alert-reason").textContent = "Waiting for device data";
             byId("food-state").textContent = "No reading available";
             showMessage("NO DATA — Waiting for sensor readings...");
             renderHistory([]);
@@ -372,7 +456,7 @@
             try {
                 let response;
                 try {
-                    response = await fetch(`${API_BASE_URL}/readings/latest`);
+                    response = await fetch(`${API_BASE_URL}/readings/latest?device_id=${encodeURIComponent(DASHBOARD_DEVICE_ID)}`);
                 } catch (error) {
                     renderLoadError("Backend unavailable");
                     byId("connection-state").textContent = "Backend unavailable";
@@ -392,7 +476,7 @@
 
                 if (response.status === 404 && result.error === "NO_DATA") {
                     renderNoData();
-                    byId("connection-state").textContent = "Connected";
+                    byId("connection-state").textContent = "Backend: Connected · Device: Waiting";
                     byId("last-updated").textContent = "";
                     hasLoadedData = false;
                     return;
@@ -400,7 +484,7 @@
 
                 if (response.ok && result.success && result.data == null) {
                     renderNoData();
-                    byId("connection-state").textContent = "Connected";
+                    byId("connection-state").textContent = "Backend: Connected · Device: Waiting";
                     byId("last-updated").textContent = "";
                     hasLoadedData = false;
                     return;
@@ -422,7 +506,11 @@
                 ]);
 
                 hasLoadedData = true;
-                byId("connection-state").textContent = "Connected";
+                const captured = reading.timestamp ? new Date(reading.timestamp) : null;
+                const ageMs = captured && !Number.isNaN(captured.getTime()) ? Date.now() - captured.getTime() : null;
+                byId("connection-state").textContent = ageMs !== null && ageMs <= STALE_AFTER_MS
+                    ? "Backend: Connected · Device: Online"
+                    : "Backend: Connected · Device: Stale";
                 byId("last-updated").textContent = `Last updated: ${new Date().toLocaleTimeString("vi-VN")}`;
             } catch (error) {
                 renderLoadError("Unable to load data");
@@ -435,7 +523,7 @@
         }
 
         loadDashboard();
-        setInterval(loadDashboard, 2000);
+        setInterval(loadDashboard, DASHBOARD_REFRESH_MS);
     </script>
 </body>
 </html>

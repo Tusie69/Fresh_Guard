@@ -285,9 +285,11 @@ def test_api_gas_recovery_does_not_clear_other_freshness_conditions(api_client):
 
 
 def test_api_gas_context_separates_devices_and_foods(api_client):
+    today = date.today()
     response = api_client.post("/api/v1/foods", json={
         "food_id": "food-B", "food_name": "Food B", "category": "MEAT",
-        "inserted_at": "2026-09-26", "expiry_date": "2027-09-26",
+        "inserted_at": today.isoformat(),
+        "expiry_date": (today + timedelta(days=365)).isoformat(),
     })
     assert response.status_code == 201
     for _ in range(10):

@@ -193,6 +193,15 @@
     async function logout() { try { await api("/auth/logout", { method: "POST" }); } finally { window.location.assign("/login"); } }
     async function init() { try { const result = await api("/auth/me"); state.user = result.user; if (state.user.role !== "ADMIN") { $("admin-identity").textContent = state.user.username; $("access-denied").hidden = false; $("app").hidden = true; return; } $("admin-identity").textContent = `${state.user.username} · ADMIN`; $("app").hidden = false; await loadOverview(); await loadRules(); await loadHistory(); } catch (error) { if (error.status === 401) window.location.assign("/login"); else showMessage(error.message, true); } }
     document.querySelectorAll("nav button[data-view]").forEach(button => button.addEventListener("click", () => showView(button.dataset.view))); $("save").addEventListener("click", saveRules); $("reset-defaults").addEventListener("click", resetDefaults); $("reload").addEventListener("click", loadRules); $("logout").addEventListener("click", logout); $("create-user").addEventListener("click", () => $("user-dialog").showModal()); $("cancel-user").addEventListener("click", () => $("user-dialog").close()); $("user-form").addEventListener("submit", createUser); init();
+
+    // Poll live sensor overview every 2 seconds; guard against duplicate timers
+    if (window._overviewTimer) clearInterval(window._overviewTimer);
+    window._overviewTimer = setInterval(loadOverview, 2000);
+
+    // Prevent timer leak on navigation away
+    window.addEventListener("unload", () => {
+      if (window._overviewTimer) clearInterval(window._overviewTimer);
+    });
   </script>
 </body>
 </html>

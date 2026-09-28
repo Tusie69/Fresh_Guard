@@ -22,20 +22,18 @@
 // RTClib + Adafruit BusIO; LiquidCrystal. Others belong to ESP32 Arduino core.
 
 // ======================== DEMO CONFIG ========================
-const char* WIFI_SSID = "Nói Ít Thôi";
-const char* WIFI_PASSWORD = "nochodau"; // Never printed to Serial.
-// Backend IP configuration. ESP32 and PC need a reachable LAN; never use localhost here.
-const char* SERVER_IP = "10.140.67.21";
-const uint16_t SERVER_PORT = 5000;
-const char* READINGS_PATH = "/api/v1/readings";
+const char* WIFI_SSID = "Tutuong";
+const char* WIFI_PASSWORD = "12345678"; // Never printed to Serial.
+// PC Wi-Fi IPv4 observed during setup. Update after changing networks.
+// ESP32 and PC need a reachable LAN; never use localhost here.
+const char* SERVER_URL = "http://10.24.51.175:5000/api/v1/readings";
 const char* DEVICE_ID = "FG-ESP32-01";
 const char* FOOD_ID = ""; // Empty: omit. Otherwise use a registered backend food_id.
 const bool ENABLE_BACKEND = true;
 const bool AUTO_TEST = false; // No synthetic values are implemented.
 const uint32_t SEND_INTERVAL_MS = 60000;
 const uint32_t SYNC_INTERVAL_MS = 60000;
-// Drain a backlog quickly while keeping normal telemetry at 60 seconds.
-const size_t MAX_SYNC_PER_CYCLE = 20;
+const size_t MAX_SYNC_PER_CYCLE = 5;
 const size_t MAX_OFFLINE_RECORDS = 1000;
 const size_t MAX_OFFLINE_BYTES = 384 * 1024;
 const size_t MAX_REJECTED_BYTES = 64 * 1024;
@@ -53,8 +51,6 @@ const bool FORMAT_FS_ON_MOUNT_FAILURE = false;
 #define YELLOW_LED 25
 #define RED_LED 26
 #define BUZZER_PIN 17 // User confirmed ACTIVE buzzer, HIGH = on.
-// MC-38 added after successful bench test: INPUT_PULLUP, LOW=closed, HIGH=open.
-#define DOOR_SENSOR_PIN 16 // RX2 / GPIO16
 #define LCD_RS 13
 #define LCD_EN 14
 #define LCD_D4 27
@@ -65,9 +61,6 @@ const bool FORMAT_FS_ON_MOUNT_FAILURE = false;
 const uint32_t SENSOR_INTERVAL_MS = 5000; // Local display only; POST every 60s.
 const uint32_t WIFI_RETRY_MS = 15000;
 const uint32_t LCD_REFRESH_MS = 250;
-// MC-38 integration.
-const uint32_t DOOR_DEBOUNCE_MS = 50;
-const uint32_t DOOR_THRESHOLD_SECONDS = 30;
 const size_t MAX_RECORD_BYTES = 768;
 const char* PENDING_PATH = "/littlefs/pending_readings.jsonl";
 const char* TEMP_PATH = "/littlefs/pending_readings.tmp";
@@ -102,17 +95,6 @@ String freshnessStatus = "Status: Pending";
 bool backendOnline = false, apiError = false;
 uint32_t statusChangedAt = 0;
 bool warningBeepPending = false;
-
-// ======================== MC-38 DOOR STATE ========================
-bool doorRawOpen = false;
-bool doorOpen = false;
-bool doorReadingPending = false;
-bool doorThresholdReported = false;
-bool priorityCapture = false;
-bool syncRequested = false;
-uint32_t doorRawChangedAt = 0;
-uint32_t doorOpenedAt = 0;
-uint32_t doorStableChangedAt = 0;
 
 bool storageReady = false, storageFull = false;
 size_t pendingCount = 0, pendingBytes = 0, effectiveMaxBytes = 0;
@@ -336,19 +318,16 @@ void httpWorker(void*) {
     PostResult result = {};
     result.code = -1;
     HTTPClient http;
-    // Allow normal Wi-Fi/Flask/SQLite latency without treating a slow
-    // response as a transport failure. The FIFO keeps the record durable.
-    http.setConnectTimeout(5000);
-    http.setTimeout(5000);
+    http.setConnectTimeout(2000);
+    http.setTimeout(2000);
     http.useHTTP10(true);
-    String endpoint = String("http://") + SERVER_IP + ":" + SERVER_PORT + READINGS_PATH;
-    if (WiFi.status() == WL_CONNECTED && http.begin(endpoint)) {
+    if (WiFi.status() == WL_CONNECTED && http.begin(SERVER_URL)) {
       http.addHeader("Content-Type", "application/json");
       result.code = http.POST(String(request.payload));
       if (result.code == 200 || result.code == 201) {
         char body[2048]; // Bounded even when Content-Length is absent.
         auto* stream = http.getStreamPtr();
-        stream->setTimeout(5000);
+        stream->setTimeout(2000);
         int expected = http.getSize();
         if (expected < int(sizeof(body))) {
           size_t wanted = expected >= 0 ? size_t(expected) : sizeof(body) - 1;
@@ -375,62 +354,6 @@ void httpWorker(void*) {
     }
     http.end();
     xQueueSend(resultQueue, &result, portMAX_DELAY);
-  }
-}
-
-
-// ======================== MC-38 DOOR SENSOR ========================
-// Wiring:
-//   MC-38 wire 1 -> GPIO16 / RX2
-//   MC-38 wire 2 -> GND
-// No 3V3/5V is required. INPUT_PULLUP makes:
-//   LOW  = magnet near / door closed
-//   HIGH = magnet away / door open
-uint32_t getDoorOpenDurationSeconds() {
-  if (!doorOpen) return 0;
-  return (millis() - doorOpenedAt) / 1000UL;
-}
-
-void maintainDoorSensor() {
-  uint32_t now = millis();
-  bool rawOpen = digitalRead(DOOR_SENSOR_PIN) == HIGH;
-
-  // Debounce the mechanical reed contact.
-  if (rawOpen != doorRawOpen) {
-    doorRawOpen = rawOpen;
-    doorRawChangedAt = now;
-  }
-
-  if (doorRawOpen != doorOpen &&
-      now - doorRawChangedAt >= DOOR_DEBOUNCE_MS) {
-    doorOpen = doorRawOpen;
-    doorStableChangedAt = now;
-
-    if (doorOpen) {
-      doorOpenedAt = now;
-      doorThresholdReported = false;
-      Serial.println("MC-38: DOOR OPEN");
-    } else {
-      uint32_t openSeconds =
-          doorOpenedAt ? (now - doorOpenedAt) / 1000UL : 0;
-      Serial.printf("MC-38: DOOR CLOSED | previous open duration:%lu s\n",
-                    static_cast<unsigned long>(openSeconds));
-      doorOpenedAt = 0;
-      doorThresholdReported = false;
-    }
-  }
-
-  bool thresholdReached =
-      doorOpen &&
-      doorOpenedAt != 0 &&
-      now - doorOpenedAt >= DOOR_THRESHOLD_SECONDS * 1000UL;
-
-  if (thresholdReached && !doorThresholdReported) {
-    doorThresholdReported = true;
-    doorReadingPending = true;
-    priorityCapture = true;
-    Serial.printf("MC-38: door threshold reached (%lu s); priority reading queued\n",
-                  static_cast<unsigned long>(DOOR_THRESHOLD_SECONDS));
   }
 }
 
@@ -463,7 +386,6 @@ void updateBuzzer() {
     on = age < 150;
     if (!on) warningBeepPending = false;
   }
-
   // Offline alone does not alarm; LCD conveys communication errors.
   digitalWrite(BUZZER_PIN, on ? HIGH : LOW);
 }
@@ -598,9 +520,9 @@ String buildReading(const String& timestamp) {
   if (isfinite(temperature)) doc["temperature_c"] = temperature;
   if (isfinite(humidity)) doc["humidity_pct"] = humidity;
   if (gasValid) doc["gas_raw"] = gasRaw;
-  // MC-38 state is part of the existing reading schema.
-  doc["door_open"] = doorOpen;
-  doc["open_duration_seconds"] = getDoorOpenDurationSeconds();
+  // TEMPORARY PLACEHOLDER: reed switch is physically absent.
+  doc["door_open"] = false;
+  doc["open_duration_seconds"] = 0;
   if (FOOD_ID && FOOD_ID[0]) doc["food_id"] = FOOD_ID;
   String payload;
   size_t written = serializeJson(doc, payload);
@@ -640,10 +562,6 @@ void maintainSensorRead() {
                 isfinite(temperature) ? String(temperature, 1).c_str() : "null",
                 isfinite(humidity) ? String(humidity, 1).c_str() : "null",
                 gasValid ? String(gasRaw).c_str() : "null");
-  Serial.printf("MC-38 Door:%s Open:%lu s Alert:%s\n",
-                doorOpen ? "OPEN" : "CLOSED",
-                static_cast<unsigned long>(getDoorOpenDurationSeconds()),
-                doorThresholdReported ? "THRESHOLD_REPORTED" : "NO");
   if (!captureReading || !ENABLE_BACKEND) return;
   if (!captureTimestamp.length()) {
     Serial.println("TIME ERROR: no valid RTC/NTP time; new reading skipped");
@@ -682,16 +600,6 @@ void updateLCD() {
   else if (!backendOnline) connection = "API Pending Q:" + String(pendingCount);
   else connection = "ONLINE Q:" + String(pendingCount);
   lcdPrintLine(1, connection);
-
-  // MC-38 ADDITION: every third 3-second page shows the physical door state.
-  if ((millis() / 3000UL) % 3UL == 2UL) {
-    if (doorOpen) {
-      lcdPrintLine(0, String("Door OPEN ") + String(getDoorOpenDurationSeconds()) + "s");
-    } else {
-      lcdPrintLine(0, "Door CLOSED");
-    }
-  }
-
 }
 
 void setup() {
@@ -701,14 +609,6 @@ void setup() {
     pinMode(pin, OUTPUT);
     digitalWrite(pin, LOW);
   }
-  // MC-38: one wire to GPIO16/RX2, the other wire to GND.
-  pinMode(DOOR_SENSOR_PIN, INPUT_PULLUP);
-  doorRawOpen = digitalRead(DOOR_SENSOR_PIN) == HIGH;
-  doorOpen = doorRawOpen;
-  doorRawChangedAt = millis();
-  doorStableChangedAt = millis();
-  if (doorOpen) doorOpenedAt = millis();
-  Serial.printf("MC-38 initial state: %s\n", doorOpen ? "DOOR OPEN" : "DOOR CLOSED");
   lcd.begin(16, 2);
   lcdPrintLine(0, "FreshGuard");
   lcdPrintLine(1, "BOOTING...");
@@ -733,31 +633,16 @@ void setup() {
   WiFi.setAutoReconnect(true);
   WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  uint32_t bootNow = millis();
-  lastReading = lastSensorRead = lastWiFiRetry = bootNow;
-  // Flush any durable backlog as soon as Wi-Fi is ready; normal sensor
-  // telemetry still waits for SEND_INTERVAL_MS.
-  lastSync = bootNow - SYNC_INTERVAL_MS;
-  Serial.printf("Backend: http://%s:%u%s | device:%s | interval:%lu ms\n",
-                SERVER_IP, unsigned(SERVER_PORT), READINGS_PATH, DEVICE_ID,
+  lastReading = lastSync = lastSensorRead = lastWiFiRetry = millis();
+  Serial.printf("Backend: %s | device:%s | interval:%lu ms\n", SERVER_URL, DEVICE_ID,
                 static_cast<unsigned long>(SEND_INTERVAL_MS));
   Serial.println("Ready. First reading/sync after 60s; boot self-tests disabled.");
 }
 
 void loop() {
-  maintainDoorSensor();
   maintainWiFi();
   maintainCompaction();
   uint32_t now = millis();
-
-  // MC-38 priority capture occurs once at 30 seconds; normal telemetry remains 60s.
-  if (doorReadingPending && !gasSampling && !deferredReading.length()) {
-    doorReadingPending = false;
-    priorityCapture = true;
-    lastSensorRead = now;
-    startSensorRead(true);
-  }
-
   if (!gasSampling && now - lastReading >= SEND_INTERVAL_MS) {
     lastReading = lastSensorRead = now;
     startSensorRead(true);
@@ -768,29 +653,20 @@ void loop() {
   maintainSensorRead();
   if (deferredReading.length() && !compactOutput) {
     appendOfflineReading(deferredReading);
-    if (priorityCapture) syncRequested = true;
-    priorityCapture = false;
     // Overflow/failure explicitly reports loss of NEW samples. Existing unsent
     // records are never evicted. No RAM-only fallback pretending to be durable.
     deferredReading = "";
   }
   // Finish this cycle's sensor capture before starting the bounded FIFO batch.
   if (ENABLE_BACKEND && httpReady && storageReady && !gasSampling &&
-      !syncActive && !inFlight && !compactOutput &&
-      (syncRequested || now - lastSync >= SYNC_INTERVAL_MS)) {
+      !syncActive && !inFlight && !compactOutput && now - lastSync >= SYNC_INTERVAL_MS) {
     lastSync = now;
     cycleSent = 0;
     cycleTotal = pendingCount;
     syncActive = pendingCount > 0 && WiFi.status() == WL_CONNECTED;
-    if (syncActive) syncRequested = false;
   }
   processRetryQueue();
   updateBuzzer();
   updateLCD();
   delay(1); // Yield one tick; no blocking reconnect or alarm loops.
 }
-
-
-// MC-38 flow: debounce continuously -> detect OPEN/CLOSED -> accumulate duration.
-// At 30s open, capture exactly one priority reading through the existing
-// LittleFS FIFO and HTTP worker. No local freshness or door-alert decision.

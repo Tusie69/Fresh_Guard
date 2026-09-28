@@ -740,6 +740,7 @@ def create_reading():
 
 @readings_bp.get("/readings/latest")
 def get_latest_reading():
+    device_id = request.args.get("device_id")
     connection = get_db_connection()
     try:
         row = connection.execute(
@@ -747,6 +748,7 @@ def get_latest_reading():
             SELECT
                 r.id,
                 r.device_id,
+                r.device_reading_id,
                 r.timestamp,
                 r.temperature_c,
                 r.humidity_pct,
@@ -763,9 +765,11 @@ def get_latest_reading():
                 f.expiry_date AS _food_expiry_date
             FROM sensor_readings AS r
             LEFT JOIN food_items AS f ON f.food_id = r.food_id
+            WHERE (? IS NULL OR r.device_id = ?)
             ORDER BY r.id DESC
             LIMIT 1
-            """
+            """,
+            (device_id, device_id)
         ).fetchone()
     finally:
         connection.close()
@@ -809,6 +813,7 @@ def get_latest_reading():
 @readings_bp.get("/readings")
 def get_readings():
     limit = request.args.get("limit", default=20, type=int)
+    device_id = request.args.get("device_id")
 
     if limit < 1:
         return {
@@ -827,6 +832,7 @@ def get_readings():
             SELECT
                 r.id,
                 r.device_id,
+                r.device_reading_id,
                 r.timestamp,
                 r.temperature_c,
                 r.humidity_pct,
@@ -843,10 +849,11 @@ def get_readings():
                 f.expiry_date AS _food_expiry_date
             FROM sensor_readings AS r
             LEFT JOIN food_items AS f ON f.food_id = r.food_id
+            WHERE (? IS NULL OR r.device_id = ?)
             ORDER BY r.id DESC
             LIMIT ?
             """,
-            (limit,)
+            (device_id, device_id, limit)
         ).fetchall()
     finally:
         connection.close()

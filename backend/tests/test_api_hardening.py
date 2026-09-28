@@ -89,6 +89,27 @@ def test_readings_reject_empty_malformed_and_non_object_json(client, kwargs):
     assert response.json["message"]
 
 
+def test_readings_latest_and_history_can_filter_by_device(client):
+    first = reading_payload(device_id="FG-ESP32-01", timestamp="2026-09-28T10:00:00+07:00")
+    second = reading_payload(device_id="SIMULATOR", timestamp="2026-09-28T11:00:00+07:00")
+    assert client.post("/api/v1/readings", json=first).status_code == 201
+    assert client.post("/api/v1/readings", json=second).status_code == 201
+
+    latest = client.get("/api/v1/readings/latest?device_id=FG-ESP32-01")
+    assert latest.status_code == 200
+    assert latest.json["data"]["device_id"] == "FG-ESP32-01"
+    assert latest.json["data"]["device_reading_id"] == first["device_reading_id"]
+
+    history = client.get("/api/v1/readings?device_id=FG-ESP32-01&limit=20")
+    assert history.status_code == 200
+    assert history.json["count"] == 1
+    assert {row["device_id"] for row in history.json["data"]} == {"FG-ESP32-01"}
+
+    unknown = client.get("/api/v1/readings/latest?device_id=UNKNOWN")
+    assert unknown.status_code == 404
+    assert unknown.json["error"] == "NO_DATA"
+
+
 @pytest.mark.parametrize(
     ("field", "value", "error"),
     [

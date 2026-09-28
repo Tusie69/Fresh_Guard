@@ -2,208 +2,1669 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FreshGuard Admin</title>
+  <link rel="icon" href="/static/favicon.ico">
+  <link href="/static/assets/styles/main.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7/css/all.min.css">
   <style>
-    :root { font-family: "Segoe UI", Arial, sans-serif; color: #18312b; background: #f3f7f5; }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; }
-    header { display: flex; justify-content: space-between; align-items: center; padding: 18px 28px; color: #fff; background: #176b52; }
-    header h1 { margin: 0; font-size: 1.25rem; }
-    header small { display: block; margin-top: 3px; opacity: .82; }
-    header button, .button-secondary { padding: 8px 13px; border: 1px solid rgb(255 255 255 / 45%); border-radius: 7px; color: #fff; background: transparent; cursor: pointer; font: inherit; }
-    .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100vh - 75px); }
-    aside { padding: 22px 14px; background: #e5f0eb; border-right: 1px solid #d2e1da; }
-    nav button { width: 100%; margin: 3px 0; padding: 10px 12px; border: 0; border-radius: 7px; color: #31564a; background: transparent; text-align: left; cursor: pointer; font: inherit; }
-    nav button.active, nav button:hover { color: #14543f; background: #cfe5db; font-weight: 700; }
-    main { width: min(1180px, 100%); padding: 28px; }
-    .panel { padding: 22px; background: #fff; border: 1px solid #dce7e2; border-radius: 12px; box-shadow: 0 2px 8px rgb(20 60 45 / 5%); }
-    h2 { margin: 0 0 8px; color: #176b52; } h3 { margin: 0 0 14px; }
-    .muted { color: #61736c; } .notice { margin: 0 0 18px; padding: 11px 14px; border-radius: 8px; background: #e8f2ed; color: #173c31; }
-    .notice.error { background: #fff0ee; color: #8d2018; } .notice.warn { background: #fff8e7; color: #785500; }
-    .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
-    .stat { padding: 17px; border-radius: 10px; background: #f5faf7; } .stat strong { display: block; margin-top: 5px; font-size: 1.8rem; color: #176b52; }
-    .rule-section { margin-top: 20px; } .rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
-    .rule-card { padding: 14px; border: 1px solid #e0eae5; border-radius: 9px; background: #fbfdfc; }
-    .rule-card.locked { background: #f5f7f6; } .rule-card label { display: block; color: #52665f; font-size: .84rem; }
-    .rule-card input { width: 100%; margin-top: 7px; padding: 9px; border: 1px solid #bfd2c9; border-radius: 6px; font: inherit; }
-    .rule-card input:read-only { border-color: #e0e6e3; color: #65736e; background: #eef2f0; }
-    .badge { display: inline-block; margin-top: 8px; padding: 3px 7px; border-radius: 99px; color: #496057; background: #e8eeeb; font-size: .75rem; }
-    .actions { display: flex; align-items: center; gap: 10px; margin-top: 22px; } .actions button { padding: 10px 16px; border: 0; border-radius: 7px; background: #176b52; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
-    .actions button.secondary { color: #31564a; background: #e5f0eb; } .actions button:disabled { opacity: .55; cursor: wait; }
-    #reason { width: min(620px, 100%); padding: 10px; border: 1px solid #bfd2c9; border-radius: 7px; font: inherit; }
-    .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } th, td { padding: 10px 8px; border-bottom: 1px solid #e5ece8; text-align: left; vertical-align: top; } th { color: #52665f; font-size: .75rem; text-transform: uppercase; } td { font-size: .9rem; }
-    .compact-button { padding: 6px 9px; border: 1px solid #bfd2c9; border-radius: 6px; color: #31564a; background: #fff; cursor: pointer; font: inherit; font-size: .8rem; }
-    .compact-button:disabled { opacity: .45; cursor: not-allowed; }
-    dialog { width: min(420px, calc(100% - 30px)); border: 0; border-radius: 12px; padding: 24px; box-shadow: 0 12px 40px rgb(20 60 45 / 25%); } dialog::backdrop { background: rgb(10 35 25 / 35%); }
-    dialog label { display: block; margin: 14px 0 6px; font-weight: 600; } dialog input, dialog select { width: 100%; padding: 9px; border: 1px solid #bfd2c9; border-radius: 6px; font: inherit; }
     [hidden] { display: none !important; }
-    @media (max-width: 760px) { header { padding: 15px 18px; } .layout { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid #d2e1da; } nav { display: grid; grid-template-columns: repeat(2, 1fr); } main { padding: 18px; } .cards { grid-template-columns: repeat(2, 1fr); } }
+    .nav-link { cursor: pointer; }
+    .app-header__logo .logo-text { font-size: 1.15rem; font-weight: 700; color: #176b52; display: flex; align-items: center; letter-spacing: -0.5px; }
+    .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .card { transition: all .2s ease; }
+    .rule-card { transition: box-shadow 0.2s ease; }
+    .rule-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #28a745; box-shadow: 0 0 0 0 rgba(40,167,69,0.7); animation: pulse 1.8s infinite; }
+    @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(40,167,69,0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(40,167,69,0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(40,167,69,0); } }
+    dialog { border: 0; border-radius: 12px; padding: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.25); width: min(480px, calc(100% - 30px)); }
+    dialog::backdrop { background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); }
+    .badge-meat { background-color: #fee2e2; color: #b91c1c; }
+    .badge-dairy { background-color: #e0f2fe; color: #0369a1; }
+    .badge-veg { background-color: #dcfce7; color: #15803d; }
+    .badge-fruit { background-color: #fef3c7; color: #b45309; }
+    .badge-cooked { background-color: #f3e8ff; color: #6b21a8; }
   </style>
 </head>
 <body>
-  <header><div><h1>FreshGuard Admin</h1><small id="admin-identity">Checking session…</small></div><button id="logout">Logout</button></header>
-  <div id="access-denied" class="panel" style="margin: 28px;" hidden><h2>Access Denied</h2><p class="muted">An ADMIN account is required to use this page.</p><a href="/">Back to user dashboard</a></div>
-  <div id="app" class="layout" hidden>
-    <aside><nav aria-label="Admin navigation">
-      <button data-view="overview" class="active">Overview</button><button data-view="rules">Freshness Rules</button><button data-view="history">Rule History</button><button data-view="users">Users</button><button data-view="user-audit">User Audit</button><button data-view="foods">Foods</button><button data-view="readings">Readings</button><button data-view="events">Events</button><button onclick="window.location.assign('/')">Back to User Dashboard</button>
-    </nav></aside>
-    <main><p id="message" class="notice" role="status" hidden></p>
-      <section id="view-overview" class="view"><div class="panel"><h2>Overview</h2><p class="muted">Current global freshness configuration and recent administration activity.</p><div class="cards"><div class="stat">Total users<strong id="user-count">—</strong></div><div class="stat">Active users<strong id="active-user-count">—</strong></div><div class="stat">Readings<strong id="reading-count">—</strong></div><div class="stat">Foods<strong id="food-count">—</strong></div><div class="stat">Events<strong id="event-count">—</strong></div><div class="stat">Editable rules<strong id="editable-count">—</strong></div><div class="stat">Locked rules<strong id="locked-count">—</strong></div><div class="stat">Current admin<strong id="overview-admin">—</strong></div>
-      <div class="stat">Temperature<strong id="overview-temperature">Loading...</strong></div>
-      <div class="stat">Humidity<strong id="overview-humidity">Loading...</strong></div>
-      <div class="stat">Gas Raw<strong id="overview-gas">Loading...</strong></div>
-      <div class="stat">Door<strong id="overview-door">Loading...</strong></div>
+<div class="app-container app-theme-white body-tabs-shadow fixed-sidebar fixed-header">
+
+  <!-- Header -->
+  <div class="app-header header-shadow">
+    <div class="app-header__logo">
+      <div class="logo-text"><i class="fa fa-shield-alt text-success me-2"></i>FreshGuard</div>
+      <div class="header__pane ms-auto">
+        <div>
+          <button type="button" class="hamburger close-sidebar-btn hamburger--elastic" data-class="closed-sidebar">
+            <span class="hamburger-box"><span class="hamburger-inner"></span></span>
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="rule-section">
-      <h3>Recent rule changes</h3>
-      <div id="recent-changes" class="muted">Loading…</div>
+    <div class="app-header__mobile-menu">
+      <div>
+        <button type="button" class="hamburger hamburger--elastic mobile-toggle-nav">
+          <span class="hamburger-box"><span class="hamburger-inner"></span></span>
+        </button>
+      </div>
     </div>
-    <div class="rule-section">
-      <p class="muted">
-        Freshness: <strong id="overview-freshness">Loading...</strong>
-        · Reason: <strong id="overview-reason">Loading...</strong>
-        · Observed: <strong id="overview-observed-at">Loading...</strong>
-      </p>
+    <div class="app-header__menu">
+      <span>
+        <button type="button" class="btn-icon btn-icon-only btn btn-primary btn-sm mobile-toggle-header-nav">
+          <span class="btn-icon-wrapper"><i class="fa fa-ellipsis-v fa-w-6"></i></span>
+        </button>
+      </span>
+    </div>
+    <div class="app-header__content">
+      <div class="app-header-right">
+        <div class="header-btn-lg pe-0">
+          <div class="widget-content p-0">
+            <div class="widget-content-wrapper">
+              <div class="widget-content-left ms-3 header-user-info">
+                <div class="widget-heading" id="admin-identity">Checking session…</div>
+                <div class="widget-subheading">Admin Workspace</div>
+              </div>
+              <div class="widget-content-right ms-3">
+                <button id="logout" class="btn btn-outline-danger btn-sm" title="Sign out">
+                  <i class="fa fa-sign-out-alt me-1"></i>Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-</section>
-      <section id="view-rules" class="view" hidden><div class="panel"><h2>Freshness Rules</h2><p class="muted">Temperature hot threshold and exposure limit are editable with a mandatory state reset. Other temperature, Gas and Door rules remain locked.</p><p class="notice warn">Changing temperature stateful rules will reset all active temperature exposure state. Historical readings and events remain unchanged.</p><p class="notice warn">Only editable stateless rules will be reset. Temperature, Gas and Door remain locked.</p><div id="rules-form"></div><div class="actions"><button id="save" disabled>Save Changes</button><button id="reset-defaults" class="secondary">Reset Defaults</button><button id="reload" class="secondary">Cancel / Reload</button><label for="reason" class="muted">Reason</label><input id="reason" placeholder="Why is this change needed?" required></div></div></section>
-      <section id="view-history" class="view" hidden><div class="panel"><h2>Rule History</h2><p class="muted">Newest changes appear first.</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Admin</th><th>Role</th><th>Rule</th><th>Old</th><th>New</th><th>Reason</th></tr></thead><tbody id="history-body"></tbody></table></div></div></section>
-      <section id="view-user-audit" class="view" hidden><div class="panel"><h2>User Audit</h2><p class="muted">Privileged account changes, newest first.</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Admin</th><th>Target</th><th>Action</th><th>Old</th><th>New</th><th>Reason</th></tr></thead><tbody id="user-audit-body"></tbody></table></div></div></section>
-      <section id="view-users" class="view" hidden><div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><h2>Users</h2><p class="muted">Manage access without exposing passwords.</p></div><button id="create-user" class="compact-button">Create User</button></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr></thead><tbody id="users-body"></tbody></table></div></div></section>
-      <section id="view-foods" class="view" hidden><div class="panel"><h2>Foods</h2><p class="muted">Use the existing user dashboard to view foods.</p></div></section>
-      <section id="view-readings" class="view" hidden><div class="panel"><h2>Readings</h2><p class="muted">Use the existing user dashboard to view readings.</p></div></section>
-      <section id="view-events" class="view" hidden><div class="panel"><h2>Events</h2><p class="muted">No dedicated admin events view is available yet.</p></div></section>
-    </main>
-  </div>
-  <dialog id="user-dialog"><form id="user-form" method="dialog"><h2>Create User</h2><label for="new-username">Username</label><input id="new-username" required><label for="new-password">Password</label><input id="new-password" type="password" required autocomplete="new-password"><label for="new-role">Role</label><select id="new-role"><option value="USER">USER</option><option value="ADMIN">ADMIN</option></select><div class="actions"><button type="submit">Create</button><button type="button" id="cancel-user" class="secondary">Cancel</button></div></form></dialog>
-  <script>
-    const API_BASE = "/api/v1";
-    const state = { user: null, rules: null, original: new Map(), controls: new Map(), dirty: false };
-    const labels = { hot_threshold_c: "Hot Threshold (°C)", critical_threshold_c: "Critical Threshold (°C)", exposure_limit_seconds: "Exposure Limit (seconds)", continuity_gap_seconds: "Continuity Gap (seconds)", baseline_sample_count: "Baseline Sample Count", anomaly_increase_pct: "Anomaly Increase (%)", anomaly_consecutive_readings: "Consecutive Readings", open_duration_seconds: "Open Duration (seconds)", min_pct: "Minimum (%)", max_pct: "Maximum (%)", max_duration_days: "Maximum Duration (days)", warning_days: "Warning Days", use_soon_window_days: "Use Soon Window (days)" };
-    const $ = id => document.getElementById(id);
-    function showMessage(text, error = false) { const el = $("message"); el.textContent = text; el.className = `notice${error ? " error" : ""}`; el.hidden = !text; }
-    async function api(path, options = {}) { const response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options, headers: { ...(options.body ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) } }); const result = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(result.message || result.error || `Request failed (${response.status})`); error.status = response.status; error.payload = result; throw error; } return result; }
-    function getMeta(rules, key) { return key.split(".").reduce((value, part) => value?.[part], rules); }
-    function addRuleCard(container, key, meta) { const card = document.createElement("div"); card.className = `rule-card${meta.editable ? "" : " locked"}`; const label = document.createElement("label"); label.textContent = labels[key.split(".").pop()] || key; const input = document.createElement("input"); input.type = "number"; input.step = key.includes("pct") ? "0.1" : "1"; input.value = meta.value; input.readOnly = !meta.editable; input.dataset.ruleKey = key; input.addEventListener("input", () => { state.dirty = true; $("save").disabled = false; }); label.appendChild(input); card.appendChild(label); const badge = document.createElement("span"); badge.className = "badge"; badge.textContent = meta.editable ? "Editable" : "Locked"; card.appendChild(badge); if (!meta.editable) { const note = document.createElement("small"); note.className = "muted"; note.style.display = "block"; note.style.marginTop = "7px"; note.textContent = key === "temperature.critical_threshold_c" ? "Temperatures above this threshold trigger immediate Check Food." : "Locked because this rule affects stateful processing or event semantics."; card.appendChild(note); } container.appendChild(card); state.controls.set(key, { input, meta }); state.original.set(key, meta.value); }
-    function renderRules(rules) { state.rules = rules; state.controls.clear(); state.original.clear(); const root = $("rules-form"); root.replaceChildren(); const groups = [{ key: "temperature", title: "Temperature" }, { key: "gas", title: "Gas" }, { key: "humidity", title: "Humidity" }, { key: "door", title: "Door" }, { key: "storage", title: "Storage" }, { key: "expiry", title: "Expiry" }]; groups.forEach(group => { const section = document.createElement("div"); section.className = "rule-section"; const title = document.createElement("h3"); title.textContent = group.title; section.appendChild(title); const grid = document.createElement("div"); grid.className = "rule-grid"; if (group.key === "storage") { Object.entries(rules.storage || {}).forEach(([category, fields]) => Object.entries(fields).forEach(([field, meta]) => addRuleCard(grid, `storage.${category}.${field}`, meta))); } else if (group.key === "humidity") { Object.entries(rules.humidity || {}).forEach(([category, fields]) => Object.entries(fields).forEach(([field, meta]) => addRuleCard(grid, `humidity.${category}.${field}`, meta))); } else { Object.entries(rules[group.key] || {}).forEach(([field, meta]) => addRuleCard(grid, `${group.key}.${field}`, meta)); } section.appendChild(grid); root.appendChild(section); }); state.dirty = false; $("save").disabled = true; $("reason").value = ""; updateCounts(); }
-    function updateCounts() { const entries = [...state.controls.values()]; $("rule-count").textContent = entries.length; $("editable-count").textContent = entries.filter(x => x.meta.editable).length; $("locked-count").textContent = entries.filter(x => !x.meta.editable).length; }
-    function validateChanges(changes) { const values = {}; state.controls.forEach((entry, key) => { const raw = entry.input.value; const value = Number(raw); values[key] = value; }); for (const key of Object.keys(changes)) { if (!Number.isFinite(changes[key])) return "Values must be finite numbers"; if (key === "temperature.exposure_limit_seconds" && (!Number.isInteger(changes[key]) || changes[key] <= 0)) return "Exposure limit must be a positive integer"; if (key.includes(".min_pct") || key.includes(".max_pct")) { if (changes[key] < 0 || changes[key] > 100) return "Humidity must be between 0 and 100"; } if (key.includes("duration_days") || key.includes("warning_days") || key.includes("window_days")) { if (!Number.isInteger(changes[key]) || changes[key] < 0) return "Storage and expiry values must be non-negative integers"; } } for (const category of ["vegetable", "fruit"]) { const min = changes[`humidity.${category}.min_pct`] ?? values[`humidity.${category}.min_pct`]; const max = changes[`humidity.${category}.max_pct`] ?? values[`humidity.${category}.max_pct`]; if (!(min < max)) return `Humidity minimum must be below maximum for ${category}`; } for (const category of Object.keys(state.rules.storage || {})) { const max = changes[`storage.${category}.max_duration_days`] ?? values[`storage.${category}.max_duration_days`]; const warning = changes[`storage.${category}.warning_days`] ?? values[`storage.${category}.warning_days`]; if (warning > max) return `Storage warning cannot exceed maximum for ${category}`; } return null; }
-    async function loadRules() { try { const result = await api("/admin/freshness-rules"); renderRules(result.rules); } catch (error) { showMessage(error.status === 401 ? "Session expired. Please sign in again." : error.message, true); if (error.status === 401) window.location.assign("/login"); } }
-    async function saveRules() { const changes = {}; state.controls.forEach((entry, key) => { if (!entry.meta.editable) return; const value = Number(entry.input.value); if (value !== entry.original && value !== entry.meta.value) changes[key] = value; }); const reason = $("reason").value.trim(); if (!reason) return showMessage("A reason is required before saving.", true); const validation = validateChanges(changes); if (validation) return showMessage(validation, true); if (!Object.keys(changes).length) return showMessage("No changes to save."); if (Object.keys(changes).some(key => key === "temperature.exposure_limit_seconds" || key === "temperature.hot_threshold_c") && !window.confirm("Changing temperature stateful rules will reset all active temperature exposure state. Historical readings and events will remain unchanged. Continue?")) return; $("save").disabled = true; try { const result = await api("/admin/freshness-rules", { method: "PUT", body: JSON.stringify({ reason, rules: changes }) }); showMessage(`${result.changed_count} rule(s) saved.`); await loadRules(); await loadHistory(); } catch (error) { showMessage(error.message, true); $("save").disabled = false; } }
-    async function resetDefaults() { if (!window.confirm("Reset all editable stateless rules to DEFAULT_RULES? Temperature, Gas and Door will remain unchanged.")) return; const reason = window.prompt("Reason for resetting editable rules:"); if (!reason || !reason.trim()) { showMessage("A reason is required.", true); return; } try { const result = await api("/admin/freshness-rules/reset", { method: "POST", body: JSON.stringify({ reason: reason.trim() }) }); showMessage(`${result.changed_count} rule(s) reset to defaults.`); await loadRules(); await loadHistory(); } catch (error) { showMessage(error.message, true); } }
-    async function loadHistory() { try { const result = await api("/admin/freshness-rules/history?limit=100"); const body = $("history-body"); body.replaceChildren(); if (!result.history.length) { const row = body.insertRow(); row.insertCell().textContent = "No changes recorded"; row.cells[0].colSpan = 7; return; } result.history.forEach(item => { const row = body.insertRow(); [item.changed_at, item.actor_username, item.actor_role, item.rule_key, item.old_value, item.new_value, item.reason].forEach(value => row.insertCell().textContent = value ?? ""); }); $("recent-changes").textContent = `${result.history.length} recent change(s) available.`; } catch (error) { showMessage(error.message, true); } }
-    async function loadOverview() {
-      // Load admin overview counts
+
+  <!-- App Main (Crucial wrapper for ArchitectUI sidebar + main offset) -->
+  <div class="app-main">
+
+    <!-- Sidebar -->
+    <div class="app-sidebar sidebar-shadow">
+      <div class="app-header__logo">
+        <div class="logo-text"><i class="fa fa-shield-alt text-success me-2"></i>FreshGuard</div>
+        <div class="header__pane ms-auto">
+          <div>
+            <button type="button" class="hamburger close-sidebar-btn hamburger--elastic" data-class="closed-sidebar">
+              <span class="hamburger-box"><span class="hamburger-inner"></span></span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="app-header__mobile-menu">
+        <div>
+          <button type="button" class="hamburger hamburger--elastic mobile-toggle-nav">
+            <span class="hamburger-box"><span class="hamburger-inner"></span></span>
+          </button>
+        </div>
+      </div>
+      <div class="app-header__menu">
+        <span>
+          <button type="button" class="btn-icon btn-icon-only btn btn-primary btn-sm mobile-toggle-header-nav">
+            <span class="btn-icon-wrapper"><i class="fa fa-ellipsis-v fa-w-6"></i></span>
+          </button>
+        </span>
+      </div>
+      <div class="scrollbar-sidebar">
+        <div class="app-sidebar__inner">
+          <ul class="vertical-nav-menu">
+            <li class="app-sidebar__heading">Dashboards</li>
+            <li><a href="/"><i class="metismenu-icon pe-7s-display2"></i> User Dashboard</a></li>
+            <li class="mm-active"><a href="/admin"><i class="metismenu-icon pe-7s-config"></i> Admin Panel</a></li>
+            <li class="app-sidebar__heading">Management</li>
+            <li class="mm-active"><a href="javascript:void(0)" data-view="overview" class="nav-link"><i class="metismenu-icon pe-7s-graph1"></i> Overview</a></li>
+            <li><a href="javascript:void(0)" data-view="foods" class="nav-link"><i class="metismenu-icon pe-7s-box2"></i> Foods Management</a></li>
+            <li><a href="javascript:void(0)" data-view="readings" class="nav-link"><i class="metismenu-icon pe-7s-signal"></i> Sensor Telemetry</a></li>
+            <li><a href="javascript:void(0)" data-view="events" class="nav-link"><i class="metismenu-icon pe-7s-bell"></i> System Events</a></li>
+            <li class="app-sidebar__heading">Rules & Security</li>
+            <li><a href="javascript:void(0)" data-view="rules" class="nav-link"><i class="metismenu-icon pe-7s-settings"></i> Freshness Rules</a></li>
+            <li><a href="javascript:void(0)" data-view="history" class="nav-link"><i class="metismenu-icon pe-7s-clock"></i> Rule History</a></li>
+            <li><a href="javascript:void(0)" data-view="users" class="nav-link"><i class="metismenu-icon pe-7s-users"></i> Users</a></li>
+            <li><a href="javascript:void(0)" data-view="user-audit" class="nav-link"><i class="metismenu-icon pe-7s-note"></i> User Audit</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Outer Content Area -->
+    <div class="app-main__outer">
+      <div class="app-main__inner">
+
+        <!-- Page Title -->
+        <div class="app-page-title">
+          <div class="page-title-wrapper">
+            <div class="page-title-heading">
+              <div class="page-title-icon"><i class="pe-7s-config icon-gradient bg-mean-fruit"></i></div>
+              <div>
+                FreshGuard Administration
+                <div class="page-title-subheading">Centralized management for device thresholds, sensor telemetry, tracked foods, and platform access.</div>
+              </div>
+            </div>
+            <div class="page-title-actions">
+              <span class="badge bg-light text-dark border p-2"><span class="pulse-dot me-1"></span> Live Polling: 2s</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Access Denied Panel -->
+        <div id="access-denied" class="main-card mb-3 card border-danger" hidden>
+          <div class="card-body">
+            <h5 class="card-title text-danger"><i class="fa fa-ban me-2"></i>Access Denied</h5>
+            <p class="text-muted">An ADMIN account is required to use this page.</p>
+            <a href="/" class="btn btn-primary"><i class="fa fa-arrow-left me-2"></i>Back to User Dashboard</a>
+          </div>
+        </div>
+
+        <!-- App Shell (Loaded once authenticated) -->
+        <div id="app" hidden>
+
+          <!-- Status Message Alert -->
+          <div id="message" class="alert mb-3" role="status" hidden></div>
+
+          <!-- ==================== VIEW 1: OVERVIEW ==================== -->
+          <section id="view-overview" class="view">
+
+            <!-- ROW 1: SUMMARY (Users, Readings, Foods, Active Foods) -->
+            <div class="row">
+              <div class="col-sm-6 col-xl-3">
+                <div class="card mb-3 widget-content bg-midnight-bloom">
+                  <div class="widget-content-wrapper text-white">
+                    <div class="widget-content-left">
+                      <div class="widget-heading">Total Users</div>
+                      <div class="widget-subheading opacity-7">Active: <span id="active-user-count">—</span></div>
+                    </div>
+                    <div class="widget-content-right">
+                      <div class="widget-numbers text-white"><span id="user-count">—</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="card mb-3 widget-content bg-grow-early">
+                  <div class="widget-content-wrapper text-white">
+                    <div class="widget-content-left">
+                      <div class="widget-heading">Readings</div>
+                      <div class="widget-subheading opacity-7">Sensor telemetry rows</div>
+                    </div>
+                    <div class="widget-content-right">
+                      <div class="widget-numbers text-white"><span id="reading-count">—</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="card mb-3 widget-content bg-arielle-smile">
+                  <div class="widget-content-wrapper text-white">
+                    <div class="widget-content-left">
+                      <div class="widget-heading">Food Items</div>
+                      <div class="widget-subheading opacity-7">Monitored: <span id="overview-active-foods">—</span></div>
+                    </div>
+                    <div class="widget-content-right">
+                      <div class="widget-numbers text-white"><span id="food-count">—</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="card mb-3 widget-content bg-premium-dark">
+                  <div class="widget-content-wrapper text-white">
+                    <div class="widget-content-left">
+                      <div class="widget-heading">System Events</div>
+                      <div class="widget-subheading opacity-7">Audit & alert logs</div>
+                    </div>
+                    <div class="widget-content-right">
+                      <div class="widget-numbers text-warning"><span id="event-count">—</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ROW 2: LIVE SENSOR DATA -->
+            <div class="row">
+              <div class="col-sm-6 col-xl-3">
+                <div class="card mb-3 widget-content">
+                  <div class="widget-content-outer">
+                    <div class="widget-content-wrapper">
+                      <div class="widget-content-left">
+                        <div class="widget-heading"><i class="fa fa-temperature-high text-danger me-1"></i>Temperature</div>
+                        <div class="widget-subheading text-muted">Ambient compartment</div>
+                      </div>
+                      <div class="widget-content-right">
+                        <div class="widget-numbers text-success" id="overview-temperature">Loading…</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="card mb-3 widget-content">
+                  <div class="widget-content-outer">
+                    <div class="widget-content-wrapper">
+                      <div class="widget-content-left">
+                        <div class="widget-heading"><i class="fa fa-tint text-info me-1"></i>Humidity</div>
+                        <div class="widget-subheading text-muted">Relative humidity</div>
+                      </div>
+                      <div class="widget-content-right">
+                        <div class="widget-numbers text-success" id="overview-humidity">Loading…</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="card mb-3 widget-content">
+                  <div class="widget-content-outer">
+                    <div class="widget-content-wrapper">
+                      <div class="widget-content-left">
+                        <div class="widget-heading"><i class="fa fa-wind text-warning me-1"></i>Gas Raw</div>
+                        <div class="widget-subheading text-muted">MQ-135 reading</div>
+                      </div>
+                      <div class="widget-content-right">
+                        <div class="widget-numbers text-success" id="overview-gas">Loading…</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="card mb-3 widget-content">
+                  <div class="widget-content-outer">
+                    <div class="widget-content-wrapper">
+                      <div class="widget-content-left">
+                        <div class="widget-heading"><i class="fa fa-door-open text-primary me-1"></i>Door State</div>
+                        <div class="widget-subheading text-muted">Compartment status</div>
+                      </div>
+                      <div class="widget-content-right">
+                        <div class="widget-numbers text-success" id="overview-door">Loading…</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ROW 3: FRESHNESS / STATUS & ROW 4: RECENT RULE CHANGES -->
+            <div class="row">
+              <div class="col-md-5">
+                <div class="main-card mb-3 card">
+                  <div class="card-header"><i class="header-icon fa fa-leaf icon-gradient bg-mean-fruit"></i>Freshness Assessment</div>
+                  <div class="card-body">
+                    <div class="text-center py-2">
+                      <div class="fs-4 fw-bold text-success mb-1" id="overview-freshness">Loading…</div>
+                      <div class="text-muted" id="overview-reason">—</div>
+                    </div>
+                    <div class="border-top pt-2 mt-2 d-flex justify-content-between small text-muted">
+                      <span>Device / Observed at:</span>
+                      <span class="fw-semibold text-dark"><span id="overview-device" class="badge bg-secondary me-1">FG-ESP32-01</span> <span id="overview-observed-at">—</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-7">
+                <div class="main-card mb-3 card">
+                  <div class="card-header"><i class="header-icon fa fa-history icon-gradient bg-royal"></i>Recent Rule Changes</div>
+                  <div class="card-body">
+                    <div class="alert alert-info py-2 px-3 small mb-0" id="recent-changes">Loading…</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ROW 5: ADMIN CONTROLS & RULES SUMMARY -->
+            <div class="row">
+              <div class="col-md-4">
+                <div class="card mb-3 widget-content">
+                  <div class="widget-content-wrapper">
+                    <div class="widget-content-left">
+                      <div class="widget-heading">Current Admin</div>
+                      <div class="widget-subheading text-muted">Active session</div>
+                    </div>
+                    <div class="widget-content-right">
+                      <div class="widget-numbers text-dark fs-5" id="overview-admin">—</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card mb-3 widget-content">
+                  <div class="widget-content-wrapper">
+                    <div class="widget-content-left">
+                      <div class="widget-heading">Editable Rules</div>
+                      <div class="widget-subheading text-muted">Stateless parameters</div>
+                    </div>
+                    <div class="widget-content-right">
+                      <div class="widget-numbers text-primary" id="editable-count">—</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card mb-3 widget-content">
+                  <div class="widget-content-wrapper">
+                    <div class="widget-content-left">
+                      <div class="widget-heading">Locked Rules</div>
+                      <div class="widget-subheading text-muted">Core threshold safety</div>
+                    </div>
+                    <div class="widget-content-right">
+                      <div class="widget-numbers text-secondary" id="locked-count">—</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW: FOODS MANAGEMENT ==================== -->
+          <section id="view-foods" class="view" hidden>
+            <div class="main-card mb-3 card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                  <div>
+                    <h5 class="card-title mb-1"><i class="fa fa-boxes me-2"></i>Foods Management</h5>
+                    <p class="text-muted small mb-0">Tracked food items, expiry dates, locations and continuous freshness monitoring.</p>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button id="btn-add-food" class="btn btn-primary"><i class="fa fa-plus-circle me-1"></i>Add Food Item</button>
+                    <button id="btn-refresh-foods" class="btn btn-outline-secondary"><i class="fa fa-sync me-1"></i>Refresh</button>
+                  </div>
+                </div>
+
+                <!-- Category Filters & Search -->
+                <div class="row g-2 mb-3 align-items-center">
+                  <div class="col-md-7 d-flex gap-1 flex-wrap" id="food-category-filters">
+                    <button type="button" class="btn btn-sm btn-dark" data-cat="ALL">All Categories</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-cat="MEAT">Meat</button>
+                    <button type="button" class="btn btn-sm btn-outline-info" data-cat="DAIRY">Dairy</button>
+                    <button type="button" class="btn btn-sm btn-outline-success" data-cat="VEGETABLE">Vegetable</button>
+                    <button type="button" class="btn btn-sm btn-outline-warning" data-cat="FRUIT">Fruit</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-cat="COOKED_FOOD">Cooked Food</button>
+                  </div>
+                  <div class="col-md-5">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text"><i class="fa fa-search"></i></span>
+                      <input type="text" id="food-search" class="form-control" placeholder="Search food by name, ID or location…">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="align-middle mb-0 table table-borderless table-striped table-hover">
+                    <thead>
+                      <tr>
+                        <th>Food ID</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Location</th>
+                        <th>Qty</th>
+                        <th>Inserted</th>
+                        <th>Expiry</th>
+                        <th>Tracking</th>
+                        <th>Freshness Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="foods-body">
+                      <tr><td colspan="10" class="text-center text-muted py-3">Loading food items…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW: SENSOR TELEMETRY ==================== -->
+          <section id="view-readings" class="view" hidden>
+            <div class="main-card mb-3 card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                  <div>
+                    <h5 class="card-title mb-1"><i class="fa fa-satellite-dish me-2"></i>Sensor Telemetry Logs</h5>
+                    <p class="text-muted small mb-0">Live environmental readings captured from hardware sensors (DHT22, MQ-135, Door Reed Switch).</p>
+                  </div>
+                  <div class="d-flex gap-2 align-items-center">
+                    <select id="readings-limit" class="form-select form-select-sm" style="width: 120px;">
+                      <option value="25">25 rows</option>
+                      <option value="50" selected>50 rows</option>
+                      <option value="100">100 rows</option>
+                    </select>
+                    <button id="btn-ingest-reading" class="btn btn-success btn-sm"><i class="fa fa-paper-plane me-1"></i>Ingest Test Telemetry</button>
+                    <button id="btn-refresh-readings" class="btn btn-outline-secondary btn-sm"><i class="fa fa-sync me-1"></i>Refresh</button>
+                  </div>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="align-middle mb-0 table table-borderless table-striped table-hover small">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Timestamp</th>
+                        <th>Device</th>
+                        <th>Temp (°C)</th>
+                        <th>Humidity (%)</th>
+                        <th>Gas (MQ-135)</th>
+                        <th>Door State</th>
+                        <th>Freshness Evaluation</th>
+                        <th>Anomaly</th>
+                      </tr>
+                    </thead>
+                    <tbody id="readings-body">
+                      <tr><td colspan="9" class="text-center text-muted py-3">Loading telemetry…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW: SYSTEM EVENTS ==================== -->
+          <section id="view-events" class="view" hidden>
+            <div class="main-card mb-3 card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                  <div>
+                    <h5 class="card-title mb-1"><i class="fa fa-bell me-2"></i>System Events & Hardware Alerts</h5>
+                    <p class="text-muted small mb-0">State change notifications, gas anomalies, door alarms, and sensor faults.</p>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <select id="events-filter-type" class="form-select form-select-sm" style="width: 180px;">
+                      <option value="">All Event Types</option>
+                      <option value="DOOR_OPENED">DOOR_OPENED</option>
+                      <option value="DOOR_OPEN_WARNING">DOOR_OPEN_WARNING</option>
+                      <option value="GAS_ANOMALY_STARTED">GAS_ANOMALY_STARTED</option>
+                      <option value="GAS_ANOMALY_RECOVERED">GAS_ANOMALY_RECOVERED</option>
+                      <option value="SENSOR_FAULT">SENSOR_FAULT</option>
+                    </select>
+                    <button id="btn-refresh-events" class="btn btn-outline-secondary btn-sm"><i class="fa fa-sync me-1"></i>Refresh</button>
+                  </div>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="align-middle mb-0 table table-borderless table-striped table-hover small">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Timestamp</th>
+                        <th>Device</th>
+                        <th>Event Type</th>
+                        <th>Door Status</th>
+                        <th>Payload / Details</th>
+                      </tr>
+                    </thead>
+                    <tbody id="events-body">
+                      <tr><td colspan="6" class="text-center text-muted py-3">Loading events…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW 2: FRESHNESS RULES ==================== -->
+          <section id="view-rules" class="view" hidden>
+            <div class="main-card mb-3 card">
+              <div class="card-body">
+                <h5 class="card-title"><i class="fa fa-sliders-h me-2"></i>Freshness Rules</h5>
+                <p class="text-muted small">Editable rules save without resetting temperature exposure state. Changing hot threshold or exposure limit prompts for confirmation before resetting exposure.</p>
+                <div class="alert alert-warning mb-3">
+                  <i class="fa fa-exclamation-triangle me-2"></i>
+                  <strong>Warning:</strong> Changing temperature <em>stateful rules</em> will reset all active temperature exposure state. Historical readings and events remain unchanged.
+                </div>
+                <div id="rules-form"></div>
+                <div class="d-flex align-items-center gap-3 mt-4 flex-wrap">
+                  <button id="save" class="btn btn-primary" disabled><i class="fa fa-save me-1"></i>Save Changes</button>
+                  <button id="reset-defaults" class="btn btn-outline-secondary"><i class="fa fa-undo me-1"></i>Reset Defaults</button>
+                  <button id="reload" class="btn btn-outline-secondary"><i class="fa fa-sync me-1"></i>Cancel / Reload</button>
+                  <div class="d-flex align-items-center gap-2 flex-grow-1">
+                    <label for="reason" class="text-muted small mb-0">Reason</label>
+                    <input id="reason" class="form-control form-control-sm" style="max-width:320px;" placeholder="Why is this change needed?" required>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW 3: RULE HISTORY ==================== -->
+          <section id="view-history" class="view" hidden>
+            <div class="main-card mb-3 card">
+              <div class="card-body">
+                <h5 class="card-title"><i class="fa fa-history me-2"></i>Rule History</h5>
+                <p class="text-muted small">Newest changes appear first.</p>
+                <div class="table-responsive">
+                  <table class="align-middle mb-0 table table-borderless table-striped table-hover">
+                    <thead>
+                      <tr><th>Time</th><th>Admin</th><th>Role</th><th>Rule</th><th>Old</th><th>New</th><th>Reason</th></tr>
+                    </thead>
+                    <tbody id="history-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW 4: USERS ==================== -->
+          <section id="view-users" class="view" hidden>
+            <div class="main-card mb-3 card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <h5 class="card-title mb-1"><i class="fa fa-users me-2"></i>Users</h5>
+                    <p class="text-muted small mb-0">Manage access without exposing passwords.</p>
+                  </div>
+                  <button id="create-user" class="btn btn-primary"><i class="fa fa-user-plus me-1"></i>Create User</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="align-middle mb-0 table table-borderless table-striped table-hover">
+                    <thead>
+                      <tr><th>ID</th><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Updated</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody id="users-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==================== VIEW 5: USER AUDIT ==================== -->
+          <section id="view-user-audit" class="view" hidden>
+            <div class="main-card mb-3 card">
+              <div class="card-body">
+                <h5 class="card-title"><i class="fa fa-user-shield me-2"></i>User Audit</h5>
+                <p class="text-muted small">Privileged account changes, newest first.</p>
+                <div class="table-responsive">
+                  <table class="align-middle mb-0 table table-borderless table-striped table-hover">
+                    <thead>
+                      <tr><th>Time</th><th>Admin</th><th>Target</th><th>Action</th><th>Old</th><th>New</th><th>Reason</th></tr>
+                    </thead>
+                    <tbody id="user-audit-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div><!-- /#app -->
+      </div><!-- /.app-main__inner -->
+    </div><!-- /.app-main__outer -->
+  </div><!-- /.app-main -->
+
+</div><!-- /.app-container -->
+
+<!-- Modal: Create user dialog -->
+<dialog id="user-dialog">
+  <form id="user-form" method="dialog">
+    <h5 class="mb-3"><i class="fa fa-user-plus text-primary me-2"></i>Create New User</h5>
+    <div class="mb-2">
+      <label for="new-username" class="form-label small text-muted mb-1">Username *</label>
+      <input id="new-username" class="form-control" required placeholder="e.g. inspector01">
+    </div>
+    <div class="mb-2">
+      <label for="new-password" class="form-label small text-muted mb-1">Password *</label>
+      <input id="new-password" type="password" class="form-control" required autocomplete="new-password" placeholder="At least 6 characters">
+    </div>
+    <div class="mb-2">
+      <label for="new-role" class="form-label small text-muted mb-1">Role *</label>
+      <select id="new-role" class="form-select">
+        <option value="USER" selected>USER (Standard Operator)</option>
+        <option value="ADMIN">ADMIN (Full Permissions)</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label for="new-user-reason" class="form-label small text-muted mb-1">Audit Reason</label>
+      <input id="new-user-reason" class="form-control" placeholder="Reason for account creation">
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary flex-grow-1"><i class="fa fa-check me-1"></i>Create User</button>
+      <button type="button" id="cancel-user" class="btn btn-outline-secondary"><i class="fa fa-times me-1"></i>Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Modal: Add Food Item Dialog -->
+<dialog id="food-dialog">
+  <form id="food-form" method="dialog">
+    <h5 class="mb-3"><i class="fa fa-box-open text-primary me-2"></i>Add Tracked Food Item</h5>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label for="food-input-name" class="form-label small text-muted mb-1">Food Name *</label>
+        <input id="food-input-name" class="form-control" required placeholder="e.g. Thịt bò tươi Úc">
+      </div>
+      <div class="col-6">
+        <label for="food-input-id" class="form-label small text-muted mb-1">Food ID (Optional)</label>
+        <input id="food-input-id" class="form-control" placeholder="Leave blank for auto-ID">
+      </div>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label for="food-input-category" class="form-label small text-muted mb-1">Category *</label>
+        <select id="food-input-category" class="form-select" required>
+          <option value="MEAT">MEAT (Thịt tươi)</option>
+          <option value="DAIRY">DAIRY (Sữa & Chế phẩm)</option>
+          <option value="VEGETABLE">VEGETABLE (Rau củ)</option>
+          <option value="FRUIT">FRUIT (Trái cây)</option>
+          <option value="COOKED_FOOD">COOKED_FOOD (Đồ chín)</option>
+        </select>
+      </div>
+      <div class="col-6">
+        <label for="food-input-quantity" class="form-label small text-muted mb-1">Quantity (kg / pcs)</label>
+        <input id="food-input-quantity" type="number" step="0.1" min="0" class="form-control" value="1.0">
+      </div>
+    </div>
+    <div class="mb-2">
+      <label for="food-input-location" class="form-label small text-muted mb-1">Storage Location</label>
+      <input id="food-input-location" class="form-control" placeholder="e.g. Ngăn mát giữa, Ngăn rau củ">
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label for="food-input-inserted" class="form-label small text-muted mb-1">Date Inserted *</label>
+        <input id="food-input-inserted" type="date" class="form-control" required>
+      </div>
+      <div class="col-6">
+        <label for="food-input-expiry" class="form-label small text-muted mb-1">Expiry Date</label>
+        <input id="food-input-expiry" type="date" class="form-control">
+      </div>
+    </div>
+    <div class="form-check my-3">
+      <input class="form-check-input" type="checkbox" id="food-input-activate" checked>
+      <label class="form-check-label small" for="food-input-activate">
+        <strong>Activate monitoring immediately</strong> (evaluates freshness against active telemetry)
+      </label>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary flex-grow-1"><i class="fa fa-save me-1"></i>Save Food</button>
+      <button type="button" id="cancel-food" class="btn btn-outline-secondary"><i class="fa fa-times me-1"></i>Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Modal: Ingest Test Telemetry Dialog -->
+<dialog id="reading-dialog">
+  <form id="reading-form" method="dialog">
+    <h5 class="mb-3"><i class="fa fa-paper-plane text-success me-2"></i>Ingest Test Telemetry Reading</h5>
+    <p class="text-muted small">Send structured sensor reading with valid UUID & ISO timestamp to backend for immediate processing.</p>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label for="reading-input-device" class="form-label small text-muted mb-1">Device ID *</label>
+        <input id="reading-input-device" class="form-control" value="FG-ESP32-01" required>
+      </div>
+      <div class="col-6">
+        <label for="reading-input-door" class="form-label small text-muted mb-1">Door State *</label>
+        <select id="reading-input-door" class="form-select">
+          <option value="false" selected>CLOSED (0)</option>
+          <option value="true">OPEN (1)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-4">
+        <label for="reading-input-temp" class="form-label small text-muted mb-1">Temperature (°C) *</label>
+        <input id="reading-input-temp" type="number" step="0.1" class="form-control" value="4.2" required>
+      </div>
+      <div class="col-4">
+        <label for="reading-input-humidity" class="form-label small text-muted mb-1">Humidity (%) *</label>
+        <input id="reading-input-humidity" type="number" step="0.1" class="form-control" value="72.0" required>
+      </div>
+      <div class="col-4">
+        <label for="reading-input-gas" class="form-label small text-muted mb-1">Gas MQ-135 *</label>
+        <input id="reading-input-gas" type="number" class="form-control" value="315" required>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label for="reading-input-food" class="form-label small text-muted mb-1">Target Food ID (Optional)</label>
+      <input id="reading-input-food" class="form-control" placeholder="Leave empty for compartment reading">
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-success flex-grow-1"><i class="fa fa-upload me-1"></i>Send Telemetry</button>
+      <button type="button" id="cancel-reading" class="btn btn-outline-secondary"><i class="fa fa-times me-1"></i>Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Generic Action / Confirmation Modal (Replaces window.prompt) -->
+<dialog id="action-dialog">
+  <form id="action-form" method="dialog">
+    <h5 id="action-modal-title" class="mb-2">Confirm Action</h5>
+    <p id="action-modal-desc" class="text-muted small mb-3">Please provide an audit reason for this change.</p>
+    <div id="action-extra-input-container" class="mb-2" hidden>
+      <label id="action-extra-label" class="form-label small text-muted mb-1">Input</label>
+      <input id="action-extra-input" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label for="action-reason-input" class="form-label small text-muted mb-1">Audit Reason *</label>
+      <input id="action-reason-input" class="form-control" required placeholder="Why is this action taken?">
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" id="action-confirm-btn" class="btn btn-primary flex-grow-1">Confirm</button>
+      <button type="button" id="action-cancel-btn" class="btn btn-outline-secondary">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ArchitectUI scripts -->
+<script defer src="/static/assets/scripts/main.js"></script>
+<script defer src="/static/assets/scripts/demo.js"></script>
+<script defer src="/static/assets/scripts/scrollbar.js"></script>
+
+<!-- Admin application logic -->
+<script>
+const API_BASE = "/api/v1";
+const state = {
+  user: null,
+  rules: null,
+  original: new Map(),
+  controls: new Map(),
+  dirty: false,
+  activeCategoryFilter: "ALL",
+  foods: [],
+  activeFoods: []
+};
+
+const labels = {
+  hot_threshold_c: "Hot Threshold (°C)",
+  critical_threshold_c: "Critical Threshold (°C)",
+  exposure_limit_seconds: "Exposure Limit (seconds)",
+  continuity_gap_seconds: "Continuity Gap (seconds)",
+  baseline_sample_count: "Baseline Sample Count",
+  anomaly_increase_pct: "Anomaly Increase (%)",
+  anomaly_consecutive_readings: "Consecutive Readings",
+  open_duration_seconds: "Open Duration (seconds)",
+  min_pct: "Minimum (%)",
+  max_pct: "Maximum (%)",
+  max_duration_days: "Maximum Duration (days)",
+  warning_days: "Warning Days",
+  use_soon_window_days: "Use Soon Window (days)"
+};
+
+const $ = id => document.getElementById(id);
+
+function showMessage(text, error = false) {
+  const el = $("message");
+  if (!text) { el.hidden = true; return; }
+  el.textContent = text;
+  el.className = error ? "alert alert-danger mb-3" : "alert alert-success mb-3";
+  el.hidden = false;
+  setTimeout(() => { if (!error) el.hidden = true; }, 5000);
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    ...options,
+    headers: {
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {})
+    }
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(result.message || result.error || `Request failed (${response.status})`);
+    error.status = response.status;
+    error.payload = result;
+    throw error;
+  }
+  return result;
+}
+
+// -------------------------------------------------------------
+// Action Dialog Modal Helper
+// -------------------------------------------------------------
+function promptAction({ title, description, extraLabel, extraType = "text", onConfirm }) {
+  const dlg = $("action-dialog");
+  $("action-modal-title").textContent = title;
+  $("action-modal-desc").textContent = description;
+  const extraCont = $("action-extra-input-container");
+  const extraInput = $("action-extra-input");
+  if (extraLabel) {
+    extraCont.hidden = false;
+    $("action-extra-label").textContent = extraLabel;
+    extraInput.type = extraType;
+    extraInput.value = "";
+    extraInput.required = true;
+  } else {
+    extraCont.hidden = true;
+    extraInput.required = false;
+  }
+  const reasonInput = $("action-reason-input");
+  reasonInput.value = "";
+  dlg.showModal();
+
+  const form = $("action-form");
+  const cleanup = () => {
+    form.onsubmit = null;
+    $("action-cancel-btn").onclick = null;
+    dlg.close();
+  };
+  $("action-cancel-btn").onclick = cleanup;
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const reason = reasonInput.value.trim();
+    if (!reason) return;
+    const extraVal = extraLabel ? extraInput.value : undefined;
+    cleanup();
+    await onConfirm({ reason, extra: extraVal });
+  };
+}
+
+// -------------------------------------------------------------
+// Freshness Rules Management
+// -------------------------------------------------------------
+function getMeta(rules, key) { return key.split(".").reduce((value, part) => value?.[part], rules); }
+
+function addRuleCard(container, key, meta) {
+  const col = document.createElement("div");
+  col.className = "col-md-6 col-xl-4 mb-3";
+  const card = document.createElement("div");
+  card.className = `p-3 rounded border h-100 rule-card ${meta.editable ? "bg-white" : "bg-light"}`;
+  const label = document.createElement("label");
+  label.className = "d-block small fw-bold text-muted mb-1";
+  label.textContent = labels[key.split(".").pop()] || key;
+  const input = document.createElement("input");
+  input.type = "number";
+  input.step = key.includes("pct") ? "0.1" : "1";
+  input.value = meta.value;
+  input.readOnly = !meta.editable;
+  input.className = "form-control form-control-sm mt-1";
+  input.dataset.ruleKey = key;
+  input.addEventListener("input", () => { state.dirty = true; $("save").disabled = false; });
+  label.appendChild(input);
+  card.appendChild(label);
+  const badge = document.createElement("span");
+  badge.className = `badge mt-1 ${meta.editable ? "bg-primary" : "bg-secondary"}`;
+  badge.textContent = meta.editable ? "Editable" : "Locked";
+  card.appendChild(badge);
+  if (!meta.editable) {
+    const note = document.createElement("small");
+    note.className = "d-block text-muted mt-1";
+    note.textContent = key === "temperature.critical_threshold_c"
+      ? "Temperatures above this threshold trigger immediate Check Food."
+      : "Locked — affects stateful processing or event semantics.";
+    card.appendChild(note);
+  }
+  col.appendChild(card);
+  container.appendChild(col);
+  state.controls.set(key, { input, meta });
+  state.original.set(key, meta.value);
+}
+
+function renderRules(rules) {
+  state.rules = rules;
+  state.controls.clear();
+  state.original.clear();
+  const root = $("rules-form");
+  root.replaceChildren();
+  const groups = [
+    { key: "temperature", title: "Temperature" },
+    { key: "gas", title: "Gas" },
+    { key: "humidity", title: "Humidity" },
+    { key: "door", title: "Door" },
+    { key: "storage", title: "Storage" },
+    { key: "expiry", title: "Expiry" }
+  ];
+  groups.forEach(group => {
+    const section = document.createElement("div");
+    section.className = "mb-4";
+    const title = document.createElement("h6");
+    title.className = "text-primary fw-bold mb-3 border-bottom pb-1";
+    title.textContent = group.title;
+    section.appendChild(title);
+    const grid = document.createElement("div");
+    grid.className = "row";
+    if (group.key === "storage") {
+      Object.entries(rules.storage || {}).forEach(([category, fields]) =>
+        Object.entries(fields).forEach(([field, meta]) => addRuleCard(grid, `storage.${category}.${field}`, meta))
+      );
+    } else if (group.key === "humidity") {
+      Object.entries(rules.humidity || {}).forEach(([category, fields]) =>
+        Object.entries(fields).forEach(([field, meta]) => addRuleCard(grid, `humidity.${category}.${field}`, meta))
+      );
+    } else {
+      Object.entries(rules[group.key] || {}).forEach(([field, meta]) =>
+        addRuleCard(grid, `${group.key}.${field}`, meta)
+      );
+    }
+    section.appendChild(grid);
+    root.appendChild(section);
+  });
+  state.dirty = false;
+  $("save").disabled = true;
+  $("reason").value = "";
+}
+
+function validateChanges(changes) {
+  const values = {};
+  state.controls.forEach((entry, key) => { values[key] = Number(entry.input.value); });
+  for (const key of Object.keys(changes)) {
+    if (!Number.isFinite(changes[key])) return "Values must be finite numbers";
+    if (key === "temperature.exposure_limit_seconds" && (!Number.isInteger(changes[key]) || changes[key] <= 0)) return "Exposure limit must be a positive integer";
+    if (key.includes(".min_pct") || key.includes(".max_pct")) { if (changes[key] < 0 || changes[key] > 100) return "Humidity must be between 0 and 100"; }
+    if (key.includes("duration_days") || key.includes("warning_days") || key.includes("window_days")) { if (!Number.isInteger(changes[key]) || changes[key] < 0) return "Storage and expiry values must be non-negative integers"; }
+  }
+  for (const category of ["vegetable", "fruit"]) {
+    const min = changes[`humidity.${category}.min_pct`] ?? values[`humidity.${category}.min_pct`];
+    const max = changes[`humidity.${category}.max_pct`] ?? values[`humidity.${category}.max_pct`];
+    if (!(min < max)) return `Humidity minimum must be below maximum for ${category}`;
+  }
+  for (const category of Object.keys(state.rules.storage || {})) {
+    const max = changes[`storage.${category}.max_duration_days`] ?? values[`storage.${category}.max_duration_days`];
+    const warning = changes[`storage.${category}.warning_days`] ?? values[`storage.${category}.warning_days`];
+    if (warning > max) return `Storage warning cannot exceed maximum for ${category}`;
+  }
+  return null;
+}
+
+async function loadRules() {
+  try {
+    const result = await api("/admin/freshness-rules");
+    renderRules(result.rules);
+  } catch (error) {
+    showMessage(error.status === 401 ? "Session expired. Please sign in again." : error.message, true);
+    if (error.status === 401) window.location.assign("/login");
+  }
+}
+
+async function saveRules() {
+  const changes = {};
+  state.controls.forEach((entry, key) => {
+    if (!entry.meta.editable) return;
+    const value = Number(entry.input.value);
+    if (value !== entry.original && value !== entry.meta.value) changes[key] = value;
+  });
+  const reason = $("reason").value.trim();
+  if (!reason) return showMessage("A reason is required before saving.", true);
+  const validation = validateChanges(changes);
+  if (validation) return showMessage(validation, true);
+  if (!Object.keys(changes).length) return showMessage("No changes to save.");
+  const isStateful = Object.keys(changes).some(key => key === "temperature.exposure_limit_seconds" || key === "temperature.hot_threshold_c");
+  if (isStateful && !window.confirm("Changing temperature stateful rules will reset all active temperature exposure state. Continue?")) return;
+  $("save").disabled = true;
+  try {
+    const result = await api("/admin/freshness-rules", { method: "PUT", body: JSON.stringify({ reason, rules: changes }) });
+    showMessage(`${result.changed_count} rule(s) saved.`);
+    await loadRules();
+    await loadHistory();
+  } catch (error) {
+    showMessage(error.message, true);
+    $("save").disabled = false;
+  }
+}
+
+async function resetDefaults() {
+  promptAction({
+    title: "Reset Rules to Defaults",
+    description: "Reset all editable stateless rules to DEFAULT_RULES? Temperature, Gas and Door will remain unchanged.",
+    onConfirm: async ({ reason }) => {
       try {
-        const overview = await api("/admin/overview");
-        $("overview-admin").textContent = state.user.username;
-        $("user-count").textContent = overview.users.total;
-        $("active-user-count").textContent = overview.users.active;
-        $("reading-count").textContent = overview.readings.total;
-        $("food-count").textContent = overview.foods.total;
-        $("event-count").textContent = overview.events.total;
-        $("editable-count").textContent = overview.freshness_rules.editable;
-        $("locked-count").textContent = overview.freshness_rules.locked;
-        $("recent-changes").textContent = overview.freshness_rules.latest_change_at
-          ? `Last change: ${overview.freshness_rules.latest_change_at}`
-          : "No rule changes recorded.";
+        const result = await api("/admin/freshness-rules/reset", { method: "POST", body: JSON.stringify({ reason }) });
+        showMessage(`${result.changed_count} rule(s) reset to defaults.`);
+        await loadRules();
+        await loadHistory();
+      } catch (error) { showMessage(error.message, true); }
+    }
+  });
+}
+
+async function loadHistory() {
+  try {
+    const result = await api("/admin/freshness-rules/history?limit=100");
+    const body = $("history-body");
+    body.replaceChildren();
+    if (!result.history.length) {
+      const row = body.insertRow();
+      const cell = row.insertCell();
+      cell.textContent = "No changes recorded";
+      cell.colSpan = 7;
+      cell.className = "text-center text-muted";
+      return;
+    }
+    result.history.forEach(item => {
+      const row = body.insertRow();
+      [item.changed_at, item.actor_username, item.actor_role, item.rule_key, item.old_value, item.new_value, item.reason]
+        .forEach(value => row.insertCell().textContent = value ?? "");
+    });
+    $("recent-changes").textContent = `${result.history.length} recent change(s) available.`;
+  } catch (error) { showMessage(error.message, true); }
+}
+
+// -------------------------------------------------------------
+// Overview View
+// -------------------------------------------------------------
+async function loadOverview() {
+  try {
+    const overview = await api("/admin/overview");
+    $("overview-admin").textContent = state.user.username;
+    $("user-count").textContent = overview.users.total;
+    $("active-user-count").textContent = overview.users.active;
+    $("reading-count").textContent = overview.readings.total;
+    $("food-count").textContent = overview.foods.total;
+    $("event-count").textContent = overview.events.total;
+    $("editable-count").textContent = overview.freshness_rules.editable;
+    $("locked-count").textContent = overview.freshness_rules.locked;
+    $("recent-changes").textContent = overview.freshness_rules.latest_change_at
+      ? `Last change: ${overview.freshness_rules.latest_change_at}`
+      : "No rule changes recorded.";
+  } catch (_) {}
+
+  // Active foods count
+  try {
+    const activeRes = await api("/foods/active");
+    $("overview-active-foods").textContent = activeRes.data ? activeRes.data.length : 0;
+  } catch (_) {
+    $("overview-active-foods").textContent = "—";
+  }
+
+  // Live sensor data from readings/latest
+  try {
+    const res = await api("/readings/latest");
+    const d = res.data;
+    $("overview-device").textContent = d.device_id || "FG-ESP32-01";
+    $("overview-temperature").textContent = d.temperature_c != null ? `${d.temperature_c} °C` : "Data Unavailable";
+    $("overview-humidity").textContent = d.humidity_pct != null ? `${d.humidity_pct} %` : "Data Unavailable";
+    $("overview-gas").textContent = d.gas_raw != null ? `${d.gas_raw}` : "Data Unavailable";
+    if (d.door_open === true) {
+      $("overview-door").innerHTML = '<span class="text-danger"><i class="fa fa-door-open me-1"></i>OPEN</span>';
+    } else if (d.door_open === false) {
+      $("overview-door").innerHTML = '<span class="text-success"><i class="fa fa-door-closed me-1"></i>CLOSED</span>';
+    } else {
+      $("overview-door").textContent = "Data Unavailable";
+    }
+    const fs = d.freshness;
+    $("overview-freshness").textContent = fs && fs.status ? fs.status : "Data Unavailable";
+    if (fs && fs.status === "Spoiled") $("overview-freshness").className = "fs-4 fw-bold text-danger mb-1";
+    else if (fs && (fs.status === "Needs Attention" || fs.status === "Check Food")) $("overview-freshness").className = "fs-4 fw-bold text-warning mb-1";
+    else $("overview-freshness").className = "fs-4 fw-bold text-success mb-1";
+
+    $("overview-reason").textContent = fs && fs.reason ? fs.reason : "—";
+    const ts = d.timestamp;
+    $("overview-observed-at").textContent = ts ? ts.replace("T", " ").replace("+07:00", "").replace("Z", "") : "Unknown";
+  } catch (err) {
+    const u = err.status === 404 ? "Data Unavailable" : "Sensor unavailable";
+    $("overview-temperature").textContent = u;
+    $("overview-humidity").textContent = u;
+    $("overview-gas").textContent = u;
+    $("overview-door").textContent = u;
+    $("overview-freshness").textContent = u;
+    $("overview-reason").textContent = "—";
+    $("overview-observed-at").textContent = "—";
+  }
+}
+
+// -------------------------------------------------------------
+// Foods Management
+// -------------------------------------------------------------
+function getCategoryBadge(cat) {
+  const c = String(cat || "").toUpperCase();
+  if (c === "MEAT") return '<span class="badge badge-meat"><i class="fa fa-drumstick-bite me-1"></i>Meat</span>';
+  if (c === "DAIRY") return '<span class="badge badge-dairy"><i class="fa fa-cheese me-1"></i>Dairy</span>';
+  if (c === "VEGETABLE") return '<span class="badge badge-veg"><i class="fa fa-carrot me-1"></i>Vegetable</span>';
+  if (c === "FRUIT") return '<span class="badge badge-fruit"><i class="fa fa-apple-alt me-1"></i>Fruit</span>';
+  if (c === "COOKED_FOOD") return '<span class="badge badge-cooked"><i class="fa fa-utensils me-1"></i>Cooked</span>';
+  return `<span class="badge bg-secondary">${cat || "Other"}</span>`;
+}
+
+function getFreshnessBadge(status) {
+  if (!status) return '<span class="badge bg-light text-dark border">Not Evaluated</span>';
+  const s = String(status).toLowerCase();
+  if (s.includes("fresh") || s.includes("normal")) return `<span class="badge bg-success">${status}</span>`;
+  if (s.includes("attention") || s.includes("warning")) return `<span class="badge bg-warning text-dark">${status}</span>`;
+  if (s.includes("check")) return `<span class="badge bg-warning text-dark">${status}</span>`;
+  if (s.includes("spoil")) return `<span class="badge bg-danger">${status}</span>`;
+  return `<span class="badge bg-info">${status}</span>`;
+}
+
+async function loadFoods() {
+  const body = $("foods-body");
+  body.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">Loading food items…</td></tr>';
+  try {
+    const [allRes, activeFreshRes] = await Promise.all([
+      api("/foods"),
+      api("/foods/active/freshness").catch(() => ({ data: [] }))
+    ]);
+    const foods = allRes.data || [];
+    const activeMap = new Map();
+    (activeFreshRes.data || []).forEach(item => {
+      activeMap.set(item.food_id, item);
+    });
+
+    state.foods = foods.map(f => {
+      const act = activeMap.get(f.food_id);
+      return {
+        ...f,
+        is_active: Boolean(act),
+        freshness_status: act?.freshness_status || null,
+        freshness_reason: act?.freshness_reason || null,
+        evaluated_at: act?.evaluated_at || null
+      };
+    });
+
+    renderFoodsTable();
+  } catch (error) {
+    body.innerHTML = `<tr><td colspan="10" class="text-center text-danger py-3"><i class="fa fa-exclamation-circle me-1"></i>Failed to load foods: ${error.message}</td></tr>`;
+  }
+}
+
+function renderFoodsTable() {
+  const body = $("foods-body");
+  body.replaceChildren();
+
+  const filter = state.activeCategoryFilter;
+  const search = ($("food-search")?.value || "").toLowerCase().trim();
+
+  const filtered = state.foods.filter(item => {
+    if (filter !== "ALL" && item.category !== filter) return false;
+    if (search) {
+      const match = (item.food_name || "").toLowerCase().includes(search) ||
+                    (item.food_id || "").toLowerCase().includes(search) ||
+                    (item.storage_location || "").toLowerCase().includes(search);
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    const row = body.insertRow();
+    const cell = row.insertCell();
+    cell.colSpan = 10;
+    cell.className = "text-center text-muted py-4";
+    cell.innerHTML = '<i class="fa fa-box-open fa-2x mb-2 d-block text-secondary opacity-50"></i>No matching food items found.';
+    return;
+  }
+
+  filtered.forEach(item => {
+    const row = body.insertRow();
+    row.innerHTML = `
+      <td><strong>${item.food_id}</strong></td>
+      <td>${item.food_name}</td>
+      <td>${getCategoryBadge(item.category)}</td>
+      <td><span class="text-muted small">${item.storage_location || "—"}</span></td>
+      <td>${item.quantity != null ? `${item.quantity}` : "—"}</td>
+      <td><span class="small">${item.inserted_at || "—"}</span></td>
+      <td><span class="small ${item.expiry_date ? "fw-bold" : ""}">${item.expiry_date || "—"}</span></td>
+      <td>${item.is_active ? '<span class="badge bg-success"><i class="fa fa-check-circle me-1"></i>Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
+      <td>
+        ${getFreshnessBadge(item.freshness_status)}
+        ${item.freshness_reason ? `<small class="d-block text-muted" style="max-width:200px;font-size:11px;">${item.freshness_reason}</small>` : ""}
+      </td>
+      <td>
+        <button class="btn btn-sm ${item.is_active ? "btn-outline-warning" : "btn-outline-success"} me-1 btn-toggle-active" data-id="${item.food_id}" data-active="${item.is_active}" title="${item.is_active ? "Stop tracking" : "Start tracking"}">
+          <i class="fa ${item.is_active ? "fa-pause" : "fa-play"}"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-danger btn-delete-food" data-id="${item.food_id}" data-name="${item.food_name}" title="Delete food item">
+          <i class="fa fa-trash"></i>
+        </button>
+      </td>
+    `;
+  });
+
+  // Attach button listeners
+  body.querySelectorAll(".btn-toggle-active").forEach(btn => {
+    btn.addEventListener("click", () => toggleFoodActive(btn.dataset.id, btn.dataset.active === "true"));
+  });
+  body.querySelectorAll(".btn-delete-food").forEach(btn => {
+    btn.addEventListener("click", () => deleteFood(btn.dataset.id, btn.dataset.name));
+  });
+}
+
+async function toggleFoodActive(foodId, currentlyActive) {
+  const action = currentlyActive ? "deactivate" : "activate";
+  try {
+    await api(`/foods/${foodId}/${action}`, { method: "POST" });
+    showMessage(`Food ${foodId} ${currentlyActive ? "deactivated" : "activated for monitoring"}.`);
+    await loadFoods();
+    await loadOverview();
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+async function deleteFood(foodId, foodName) {
+  promptAction({
+    title: "Delete Food Item",
+    description: `Are you sure you want to permanently delete "${foodName}" (${foodId})? Active tracking and freshness snapshots for this food will also be removed.`,
+    onConfirm: async ({ reason }) => {
+      try {
+        await api(`/foods/${foodId}`, { method: "DELETE" });
+        showMessage(`Food ${foodId} deleted successfully.`);
+        await loadFoods();
+        await loadOverview();
       } catch (error) {
-        // admin overview failure is non-fatal for sensor display
-      }
-
-      // Load live sensor data from readings/latest
-      try {
-        const res = await api("/readings/latest");
-        const d = res.data;
-
-        // Temperature
-        $("overview-temperature").textContent =
-          d.temperature_c !== null && d.temperature_c !== undefined
-            ? `${d.temperature_c} °C`
-            : "Data Unavailable";
-
-        // Humidity
-        $("overview-humidity").textContent =
-          d.humidity_pct !== null && d.humidity_pct !== undefined
-            ? `${d.humidity_pct} %`
-            : "Data Unavailable";
-
-        // Gas — raw value, no unit conversion
-        $("overview-gas").textContent =
-          d.gas_raw !== null && d.gas_raw !== undefined
-            ? `${d.gas_raw}`
-            : "Data Unavailable";
-
-        // Door — explicit === checks, not ternary (null must not become CLOSED)
-        if (d.door_open === true) {
-          $("overview-door").textContent = "OPEN";
-        } else if (d.door_open === false) {
-          $("overview-door").textContent = "CLOSED";
-        } else {
-          $("overview-door").textContent = "Data Unavailable";
-        }
-
-        // Freshness — backend is the authority, frontend never calculates
-        const fs = d.freshness;
-        $("overview-freshness").textContent =
-          fs && fs.status ? fs.status : "Data Unavailable";
-
-        // Reason — verbatim from backend
-        $("overview-reason").textContent =
-          fs && fs.reason ? fs.reason : "N/A";
-
-        // Observed time — from sensor timestamp, formatted for readability
-        const ts = d.timestamp;
-        if (ts) {
-          const formatted = ts.replace("T", " ").replace("+07:00", "").replace("Z", "");
-          $("overview-observed-at").textContent = formatted;
-        } else {
-          $("overview-observed-at").textContent = "Unknown";
-        }
-      } catch (err) {
-        // 404 NO_DATA — clear gracefully, no crash banner
-        if (err.status === 404) {
-          const u = "Data Unavailable";
-          $("overview-temperature").textContent = u;
-          $("overview-humidity").textContent = u;
-          $("overview-gas").textContent = u;
-          $("overview-door").textContent = u;
-          $("overview-freshness").textContent = u;
-          $("overview-reason").textContent = "N/A";
-          $("overview-observed-at").textContent = "Unknown";
-        } else {
-          // Network/server error — clear, do NOT leave stale data
-          $("overview-temperature").textContent = "Sensor data unavailable";
-          $("overview-humidity").textContent = "Sensor data unavailable";
-          $("overview-gas").textContent = "Sensor data unavailable";
-          $("overview-door").textContent = "Sensor data unavailable";
-          $("overview-freshness").textContent = "Sensor data unavailable";
-          $("overview-reason").textContent = "N/A";
-          $("overview-observed-at").textContent = "Unknown";
-        }
+        showMessage(error.message, true);
       }
     }
-    async function loadUsers() { try { const result = await api("/admin/users"); const body = $("users-body"); body.replaceChildren(); result.users.forEach(user => { const row = body.insertRow(); [user.id, user.username, user.role, user.is_active ? "Active" : "Inactive", user.created_at, user.updated_at].forEach(value => row.insertCell().textContent = value); const actions = row.insertCell(); const roleButton = document.createElement("button"); roleButton.className = "compact-button"; roleButton.textContent = user.role === "ADMIN" ? "Make USER" : "Make ADMIN"; roleButton.disabled = user.id === state.user.id; roleButton.addEventListener("click", () => updateUser(user.id, { role: user.role === "ADMIN" ? "USER" : "ADMIN" })); actions.appendChild(roleButton); const statusButton = document.createElement("button"); statusButton.className = "compact-button"; statusButton.style.marginLeft = "5px"; statusButton.textContent = user.is_active ? "Deactivate" : "Activate"; statusButton.disabled = user.id === state.user.id; statusButton.addEventListener("click", () => updateUser(user.id, { is_active: !user.is_active })); actions.appendChild(statusButton); }); } catch (error) { showMessage(error.message, true); } }
-    async function updateUser(id, changes) { const reason = window.prompt("Reason for this user change:"); if (!reason || !reason.trim()) { showMessage("A reason is required.", true); return; } try { await api(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify({ ...changes, reason: reason.trim() }) }); showMessage("User updated."); await loadUsers(); } catch (error) { showMessage(error.message, true); } }
-    async function loadUserAudit() { try { const result = await api("/admin/users/history?limit=100"); const body = $("user-audit-body"); body.replaceChildren(); if (!result.history.length) { const row = body.insertRow(); row.insertCell().textContent = "No user changes recorded"; row.cells[0].colSpan = 7; return; } result.history.forEach(item => { const row = body.insertRow(); [item.created_at, item.actor_username, item.target_username, item.action, item.old_value ?? "", item.new_value ?? "", item.reason ?? ""].forEach(value => row.insertCell().textContent = value); }); } catch (error) { showMessage(error.message, true); } }
-    async function createUser(event) { event.preventDefault(); try { await api("/admin/users", { method: "POST", body: JSON.stringify({ username: $("new-username").value.trim(), password: $("new-password").value, role: $("new-role").value }) }); $("user-form").reset(); $("user-dialog").close(); showMessage("User created."); await loadUsers(); } catch (error) { showMessage(error.message, true); } }
-    function showView(name) { document.querySelectorAll(".view").forEach(view => view.hidden = view.id !== `view-${name}`); document.querySelectorAll("nav button[data-view]").forEach(button => button.classList.toggle("active", button.dataset.view === name)); if (name === "rules") loadRules(); if (name === "history") loadHistory(); if (name === "users") loadUsers(); if (name === "user-audit") loadUserAudit(); }
-    async function logout() { try { await api("/auth/logout", { method: "POST" }); } finally { window.location.assign("/login"); } }
-    async function init() { try { const result = await api("/auth/me"); state.user = result.user; if (state.user.role !== "ADMIN") { $("admin-identity").textContent = state.user.username; $("access-denied").hidden = false; $("app").hidden = true; return; } $("admin-identity").textContent = `${state.user.username} · ADMIN`; $("app").hidden = false; await loadOverview(); await loadRules(); await loadHistory(); } catch (error) { if (error.status === 401) window.location.assign("/login"); else showMessage(error.message, true); } }
-    document.querySelectorAll("nav button[data-view]").forEach(button => button.addEventListener("click", () => showView(button.dataset.view))); $("save").addEventListener("click", saveRules); $("reset-defaults").addEventListener("click", resetDefaults); $("reload").addEventListener("click", loadRules); $("logout").addEventListener("click", logout); $("create-user").addEventListener("click", () => $("user-dialog").showModal()); $("cancel-user").addEventListener("click", () => $("user-dialog").close()); $("user-form").addEventListener("submit", createUser); init();
+  });
+}
 
-    // Poll live sensor overview every 2 seconds; guard against duplicate timers
-    if (window._overviewTimer) clearInterval(window._overviewTimer);
-    window._overviewTimer = setInterval(loadOverview, 2000);
+async function createFood(event) {
+  event.preventDefault();
+  const name = $("food-input-name").value.trim();
+  const cat = $("food-input-category").value;
+  const foodId = $("food-input-id").value.trim() || undefined;
+  const qty = Number($("food-input-quantity").value) || undefined;
+  const loc = $("food-input-location").value.trim() || undefined;
+  const insertedAt = $("food-input-inserted").value;
+  const mfg = $("food-input-mfg").value || undefined;
+  const exp = $("food-input-expiry").value || undefined;
+  const activateImmediately = $("food-input-activate").checked;
 
-    // Prevent timer leak on navigation away
-    window.addEventListener("unload", () => {
-      if (window._overviewTimer) clearInterval(window._overviewTimer);
+  if (!name || !cat || !insertedAt) {
+    return showMessage("Please fill in required fields (Name, Category, Date Inserted).", true);
+  }
+
+  const payload = {
+    food_name: name,
+    category: cat,
+    inserted_at: insertedAt
+  };
+  if (foodId) payload.food_id = foodId;
+  if (qty != null) payload.quantity = qty;
+  if (loc) payload.storage_location = loc;
+  if (mfg) payload.manufacture_date = mfg;
+  if (exp) payload.expiry_date = exp;
+
+  try {
+    const res = await api("/foods", { method: "POST", body: JSON.stringify(payload) });
+    const createdId = res.food?.food_id || foodId;
+    if (activateImmediately && createdId) {
+      await api(`/foods/${createdId}/activate`, { method: "POST" }).catch(() => {});
+    }
+    $("food-dialog").close();
+    $("food-form").reset();
+    showMessage(`Food "${name}" added successfully.`);
+    await loadFoods();
+    await loadOverview();
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+// -------------------------------------------------------------
+// Sensor Telemetry Logs
+// -------------------------------------------------------------
+async function loadReadings() {
+  const body = $("readings-body");
+  const limit = $("readings-limit")?.value || 50;
+  body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Loading telemetry…</td></tr>';
+  try {
+    const res = await api(`/readings?limit=${limit}`);
+    const rows = res.data || [];
+    body.replaceChildren();
+
+    if (!rows.length) {
+      const row = body.insertRow();
+      row.innerHTML = '<td colspan="9" class="text-center text-muted py-4">No sensor readings recorded yet.</td>';
+      return;
+    }
+
+    rows.forEach(r => {
+      const row = body.insertRow();
+      const tempBadge = r.temperature_c == null ? "—"
+        : (r.temperature_c > 15 ? `<span class="badge bg-danger">${r.temperature_c}°C</span>`
+        : (r.temperature_c > 8 ? `<span class="badge bg-warning text-dark">${r.temperature_c}°C</span>`
+        : `<span class="badge bg-success">${r.temperature_c}°C</span>`));
+
+      const doorBadge = r.door_open
+        ? `<span class="badge bg-danger"><i class="fa fa-door-open me-1"></i>OPEN (${r.open_duration_seconds}s)</span>`
+        : '<span class="badge bg-success"><i class="fa fa-door-closed me-1"></i>CLOSED</span>';
+
+      const anomalyBadge = r.gas_anomaly_active
+        ? '<span class="badge bg-danger"><i class="fa fa-radiation me-1"></i>ANOMALY</span>'
+        : '<span class="badge bg-light text-muted border">Normal</span>';
+
+      const ts = (r.timestamp || "").replace("T", " ").replace("+07:00", "");
+
+      row.innerHTML = `
+        <td><span class="text-muted small">#${r.id}</span></td>
+        <td><strong>${ts}</strong></td>
+        <td><span class="badge bg-dark">${r.device_id || "FG-ESP32-01"}</span></td>
+        <td>${tempBadge}</td>
+        <td><strong>${r.humidity_pct != null ? `${r.humidity_pct}%` : "—"}</strong></td>
+        <td><code>${r.gas_raw != null ? r.gas_raw : "—"}</code></td>
+        <td>${doorBadge}</td>
+        <td>
+          ${getFreshnessBadge(r.freshness_status)}
+          ${r.freshness_reason ? `<small class="d-block text-muted" style="font-size:11px;">${r.freshness_reason}</small>` : ""}
+        </td>
+        <td>${anomalyBadge}</td>
+      `;
     });
-  </script>
+  } catch (error) {
+    body.innerHTML = `<tr><td colspan="9" class="text-center text-danger py-3"><i class="fa fa-exclamation-circle me-1"></i>Failed to load telemetry: ${error.message}</td></tr>`;
+  }
+}
+
+// Helper to generate canonical UUID v4
+function generateUUID() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === "x" ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+async function ingestTestReading(event) {
+  event.preventDefault();
+  const deviceId = $("reading-input-device").value.trim() || "FG-ESP32-01";
+  const temp = Number($("reading-input-temp").value);
+  const hum = Number($("reading-input-humidity").value);
+  const gas = parseInt($("reading-input-gas").value, 10);
+  const doorOpen = $("reading-input-door").value === "true";
+  const foodId = $("reading-input-food").value.trim() || undefined;
+
+  const now = new Date();
+  const isoTimestamp = now.toISOString();
+
+  const payload = {
+    device_id: deviceId,
+    device_reading_id: generateUUID(),
+    timestamp: isoTimestamp,
+    temperature_c: temp,
+    humidity_pct: hum,
+    gas_raw: gas,
+    door_open: doorOpen,
+    open_duration_seconds: doorOpen ? 10 : 0
+  };
+  if (foodId) payload.food_id = foodId;
+
+  try {
+    await api("/readings", { method: "POST", body: JSON.stringify(payload) });
+    $("reading-dialog").close();
+    showMessage(`Test reading ingested: Temp ${temp}°C, Humidity ${hum}%, Gas ${gas}.`);
+    await loadReadings();
+    await loadOverview();
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+// -------------------------------------------------------------
+// System Events & Hardware Alerts
+// -------------------------------------------------------------
+async function loadEvents() {
+  const body = $("events-body");
+  const filterType = $("events-filter-type")?.value || "";
+  body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Loading events…</td></tr>';
+  try {
+    const url = filterType ? `/events?limit=50&event_type=${encodeURIComponent(filterType)}` : "/events?limit=50";
+    const res = await api(url);
+    const events = res.events || [];
+    body.replaceChildren();
+
+    if (!events.length) {
+      const row = body.insertRow();
+      row.innerHTML = '<td colspan="6" class="text-center text-muted py-4">No events found.</td>';
+      return;
+    }
+
+    events.forEach(ev => {
+      const row = body.insertRow();
+      let badgeClass = "bg-info";
+      if (ev.event_type.includes("ANOMALY") || ev.event_type.includes("FAULT")) badgeClass = "bg-danger";
+      else if (ev.event_type.includes("WARNING")) badgeClass = "bg-warning text-dark";
+      else if (ev.event_type.includes("RECOVERED") || ev.event_type.includes("NORMAL")) badgeClass = "bg-success";
+
+      const ts = (ev.timestamp || "").replace("T", " ").replace("+07:00", "");
+
+      row.innerHTML = `
+        <td><small class="text-muted">#${ev.id}</small></td>
+        <td><strong>${ts}</strong></td>
+        <td><span class="badge bg-dark">${ev.device_id || "FG-ESP32-01"}</span></td>
+        <td><span class="badge ${badgeClass}">${ev.event_type}</span></td>
+        <td>${ev.door_open ? `<span class="badge bg-danger">Open (${ev.open_duration_seconds}s)</span>` : '<span class="badge bg-success">Closed</span>'}</td>
+        <td><code class="small" style="word-break:break-all;">${ev.payload || "{}"}</code></td>
+      `;
+    });
+  } catch (error) {
+    body.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-3"><i class="fa fa-exclamation-circle me-1"></i>Failed to load events: ${error.message}</td></tr>`;
+  }
+}
+
+// -------------------------------------------------------------
+// User Management
+// -------------------------------------------------------------
+async function loadUsers() {
+  try {
+    const result = await api("/admin/users");
+    const body = $("users-body");
+    body.replaceChildren();
+    result.users.forEach(user => {
+      const row = body.insertRow();
+      [user.id, user.username, user.role, user.is_active ? "Active" : "Inactive", user.created_at, user.updated_at]
+        .forEach(value => row.insertCell().textContent = value);
+      const actions = row.insertCell();
+
+      const roleBtn = document.createElement("button");
+      roleBtn.className = "btn btn-sm btn-outline-primary me-1";
+      roleBtn.textContent = user.role === "ADMIN" ? "Make USER" : "Make ADMIN";
+      roleBtn.disabled = user.id === state.user.id;
+      roleBtn.addEventListener("click", () => {
+        promptAction({
+          title: `Change Role: ${user.username}`,
+          description: `Change role from ${user.role} to ${user.role === "ADMIN" ? "USER" : "ADMIN"}?`,
+          onConfirm: async ({ reason }) => {
+            await updateUser(user.id, { role: user.role === "ADMIN" ? "USER" : "ADMIN", reason });
+          }
+        });
+      });
+
+      const statusBtn = document.createElement("button");
+      statusBtn.className = "btn btn-sm btn-outline-warning me-1";
+      statusBtn.textContent = user.is_active ? "Deactivate" : "Activate";
+      statusBtn.disabled = user.id === state.user.id;
+      statusBtn.addEventListener("click", () => {
+        promptAction({
+          title: `${user.is_active ? "Deactivate" : "Activate"} User: ${user.username}`,
+          description: `Are you sure you want to ${user.is_active ? "deactivate" : "activate"} this user account?`,
+          onConfirm: async ({ reason }) => {
+            await updateUser(user.id, { is_active: !user.is_active, reason });
+          }
+        });
+      });
+
+      const pwdBtn = document.createElement("button");
+      pwdBtn.className = "btn btn-sm btn-outline-secondary me-1";
+      pwdBtn.innerHTML = '<i class="fa fa-key"></i>';
+      pwdBtn.title = "Reset Password";
+      pwdBtn.addEventListener("click", () => {
+        promptAction({
+          title: `Reset Password: ${user.username}`,
+          description: "Enter a new secure password for this user.",
+          extraLabel: "New Password *",
+          extraType: "password",
+          onConfirm: async ({ reason, extra }) => {
+            try {
+              await api(`/admin/users/${user.id}/reset-password`, {
+                method: "POST",
+                body: JSON.stringify({ new_password: extra, reason })
+              });
+              showMessage(`Password reset successfully for ${user.username}.`);
+            } catch (err) {
+              showMessage(err.message, true);
+            }
+          }
+        });
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn btn-sm btn-outline-danger";
+      delBtn.innerHTML = '<i class="fa fa-trash"></i>';
+      delBtn.title = "Delete User";
+      delBtn.disabled = user.id === state.user.id;
+      delBtn.addEventListener("click", () => {
+        promptAction({
+          title: `Delete User: ${user.username}`,
+          description: `Permanently delete user "${user.username}"? This cannot be undone.`,
+          onConfirm: async ({ reason }) => {
+            try {
+              await api(`/admin/users/${user.id}`, {
+                method: "DELETE",
+                body: JSON.stringify({ reason })
+              });
+              showMessage(`User "${user.username}" deleted.`);
+              await loadUsers();
+            } catch (err) {
+              showMessage(err.message, true);
+            }
+          }
+        });
+      });
+
+      actions.appendChild(roleBtn);
+      actions.appendChild(statusBtn);
+      actions.appendChild(pwdBtn);
+      actions.appendChild(delBtn);
+    });
+  } catch (error) { showMessage(error.message, true); }
+}
+
+async function updateUser(id, payload) {
+  try {
+    await api(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+    showMessage("User updated.");
+    await loadUsers();
+  } catch (error) { showMessage(error.message, true); }
+}
+
+async function loadUserAudit() {
+  try {
+    const result = await api("/admin/users/history?limit=100");
+    const body = $("user-audit-body");
+    body.replaceChildren();
+    if (!result.history.length) {
+      const row = body.insertRow();
+      const cell = row.insertCell();
+      cell.textContent = "No user changes recorded";
+      cell.colSpan = 7;
+      cell.className = "text-center text-muted";
+      return;
+    }
+    result.history.forEach(item => {
+      const row = body.insertRow();
+      [item.created_at, item.actor_username, item.target_username, item.action, item.old_value ?? "", item.new_value ?? "", item.reason ?? ""]
+        .forEach(value => row.insertCell().textContent = value);
+    });
+  } catch (error) { showMessage(error.message, true); }
+}
+
+async function createUser(event) {
+  event.preventDefault();
+  const username = $("new-username").value.trim();
+  const password = $("new-password").value;
+  const role = $("new-role").value;
+  const reason = $("new-user-reason").value.trim() || undefined;
+
+  try {
+    const payload = { username, password, role };
+    if (reason) payload.reason = reason;
+    await api("/admin/users", { method: "POST", body: JSON.stringify(payload) });
+    $("user-form").reset();
+    $("user-dialog").close();
+    showMessage("User created successfully.");
+    await loadUsers();
+    await loadOverview();
+  } catch (error) { showMessage(error.message, true); }
+}
+
+// -------------------------------------------------------------
+// Navigation & Views
+// -------------------------------------------------------------
+function showView(name) {
+  document.querySelectorAll(".view").forEach(view => view.hidden = view.id !== `view-${name}`);
+  document.querySelectorAll(".nav-link[data-view]").forEach(button => {
+    button.closest("li")?.classList.toggle("mm-active", button.dataset.view === name);
+  });
+  if (name === "overview") loadOverview();
+  if (name === "foods") loadFoods();
+  if (name === "readings") loadReadings();
+  if (name === "events") loadEvents();
+  if (name === "rules") loadRules();
+  if (name === "history") loadHistory();
+  if (name === "users") loadUsers();
+  if (name === "user-audit") loadUserAudit();
+}
+
+async function logout() {
+  try { await api("/auth/logout", { method: "POST" }); } finally { window.location.assign("/login"); }
+}
+
+async function init() {
+  // Set default inserted date to today in YYYY-MM-DD
+  const todayStr = new Date().toISOString().split("T")[0];
+  if ($("food-input-inserted")) $("food-input-inserted").value = todayStr;
+
+  try {
+    const result = await api("/auth/me");
+    state.user = result.user;
+    if (state.user.role !== "ADMIN") {
+      $("admin-identity").textContent = state.user.username;
+      $("access-denied").hidden = false;
+      $("app").hidden = true;
+      return;
+    }
+    $("admin-identity").textContent = `${state.user.username} · ADMIN`;
+    $("app").hidden = false;
+    await loadOverview();
+    await loadRules();
+    await loadHistory();
+  } catch (error) {
+    if (error.status === 401) window.location.assign("/login");
+    else showMessage(error.message, true);
+  }
+}
+
+// -------------------------------------------------------------
+// Event Listeners
+// -------------------------------------------------------------
+document.querySelectorAll("a.nav-link[data-view]").forEach(btn => {
+  btn.addEventListener("click", () => showView(btn.dataset.view));
+});
+
+$("save").addEventListener("click", saveRules);
+$("reset-defaults").addEventListener("click", resetDefaults);
+$("reload").addEventListener("click", loadRules);
+$("logout").addEventListener("click", logout);
+
+// Users modals
+$("create-user").addEventListener("click", () => $("user-dialog").showModal());
+$("cancel-user").addEventListener("click", () => $("user-dialog").close());
+$("user-form").addEventListener("submit", createUser);
+
+// Food modals & actions
+$("btn-add-food")?.addEventListener("click", () => $("food-dialog").showModal());
+$("cancel-food")?.addEventListener("click", () => $("food-dialog").close());
+$("food-form")?.addEventListener("submit", createFood);
+$("btn-refresh-foods")?.addEventListener("click", loadFoods);
+$("food-search")?.addEventListener("input", renderFoodsTable);
+
+document.querySelectorAll("#food-category-filters button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#food-category-filters button").forEach(b => {
+      b.className = b.className.replace("btn-dark", "btn-outline-" + (b.dataset.cat === "ALL" ? "dark" : b.dataset.cat.toLowerCase()));
+    });
+    btn.className = "btn btn-sm btn-dark";
+    state.activeCategoryFilter = btn.dataset.cat;
+    renderFoodsTable();
+  });
+});
+
+// Telemetry & readings
+$("btn-ingest-reading")?.addEventListener("click", () => $("reading-dialog").showModal());
+$("cancel-reading")?.addEventListener("click", () => $("reading-dialog").close());
+$("reading-form")?.addEventListener("submit", ingestTestReading);
+$("btn-refresh-readings")?.addEventListener("click", loadReadings);
+$("readings-limit")?.addEventListener("change", loadReadings);
+
+// Events
+$("btn-refresh-events")?.addEventListener("click", loadEvents);
+$("events-filter-type")?.addEventListener("change", loadEvents);
+
+init();
+
+// Live polling (2-second interval)
+if (window._overviewTimer) clearInterval(window._overviewTimer);
+window._overviewTimer = setInterval(() => {
+  const currentView = document.querySelector(".view:not([hidden])")?.id;
+  if (currentView === "view-overview") loadOverview();
+}, 2000);
+window.addEventListener("unload", () => { if (window._overviewTimer) clearInterval(window._overviewTimer); });
+</script>
 </body>
 </html>
-
-

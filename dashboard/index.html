@@ -4,911 +4,1462 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FreshGuard Dashboard</title>
+    <link rel="icon" href="/static/favicon.ico">
     <style>
+        /* ─── Reset & Base ─────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         :root {
-            color-scheme: light;
-            font-family: "Segoe UI", Arial, sans-serif;
-            color: #18312b;
-            background: #f3f7f5;
+            --bg: #f4f8f6;
+            --surface: #ffffff;
+            --border: #d8e5df;
+            --border-subtle: #eaf1ed;
+            --text: #18312b;
+            --text-muted: #4d6862;
+            --text-dim: #8aa69e;
+            --green: #176b52;
+            --green-light: #e5f0eb;
+            --green-mid: #b3d9c7;
+            --amber: #92600a;
+            --amber-bg: #fff8eb;
+            --amber-border: #f5d98a;
+            --red: #b42318;
+            --red-bg: #fff0ee;
+            --red-border: #f2c4bf;
+            --gray-bg: #f7faf8;
+            --shadow: 0 1px 4px rgba(20,60,45,.07);
+            --shadow-md: 0 3px 12px rgba(20,60,45,.10);
+            --radius: 10px;
+            --radius-sm: 6px;
+            --font: "Segoe UI", system-ui, sans-serif;
         }
 
-        * { box-sizing: border-box; }
+        html { font-size: 16px; }
 
         body {
-            max-width: 1120px;
-            margin: 0 auto;
-            padding: 28px 20px 48px;
+            font-family: var(--font);
+            color: var(--text);
+            background: var(--bg);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
-        header {
+        /* ─── App Shell ────────────────────────────────────── */
+        .app {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 20px 60px;
+        }
+
+        /* ─── Header ────────────────────────────────────────── */
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 16px;
+            padding: 22px 0 20px;
+            border-bottom: 1px solid var(--border);
             margin-bottom: 24px;
+            gap: 16px;
         }
 
-        h1 { margin: 0; color: #176b52; }
-        h2 { margin: 0 0 18px; font-size: 1.1rem; }
-
-        .connection {
-            color: #52665f;
-            text-align: right;
-            font-size: .9rem;
+        .brand h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--green);
+            letter-spacing: -.01em;
         }
 
-        .connection p { margin: 3px 0; }
-        .source-label { margin: -10px 0 14px; color: #61736c; font-size: .9rem; }
-        .stale-banner { margin: 0 0 18px; padding: 13px 16px; color: #8d2018; background: #fff0ee; border: 1px solid #f2c4bf; border-radius: 8px; font-weight: 700; }
-        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-
-        section {
-            min-width: 0;
-            padding: 20px;
-            background: #fff;
-            border: 1px solid #dce7e2;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgb(20 60 45 / 5%);
+        .brand p {
+            font-size: .8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
         }
 
-        .wide { grid-column: 1 / -1; }
-        .sensor-grid, .food-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-
-        .metric, .food-field {
-            padding: 12px;
-            background: #f7faf8;
-            border-radius: 8px;
+        .status-chips {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
 
-        .label { display: block; margin-bottom: 5px; color: #61736c; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
-        .value { font-size: 1.1rem; font-weight: 600; overflow-wrap: anywhere; }
-        .sensor-value { font-size: 1.35rem; }
-
-        .freshness-status { display: inline-block; font-size: 1.5rem; font-weight: 700; }
-        .status-fresh { color: #167447; }
-        .status-use-soon { color: #9a6500; }
-        .status-check-food { color: #b42318; }
-        .status-unavailable { color: #65736e; }
-
-        .freshness-reason { margin: 10px 0 0; line-height: 1.5; }
-        .food-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .button { padding: 9px 13px; border: 0; border-radius: 7px; color: #fff; background: #176b52; cursor: pointer; font: inherit; font-weight: 700; }
-        .button.secondary { color: #31564a; background: #e5f0eb; }
-        .button:disabled { opacity: .55; cursor: wait; }
-        dialog { width: min(520px, calc(100% - 28px)); border: 0; border-radius: 12px; padding: 22px; color: #18312b; box-shadow: 0 12px 40px rgb(20 60 45 / 25%); }
-        dialog::backdrop { background: rgb(10 35 25 / 45%); }
-        .scanner-preview { width: 100%; max-height: 300px; border-radius: 8px; background: #10241d; object-fit: cover; }
-        .scanner-status { min-height: 24px; margin: 10px 0; color: #52665f; }
-        .scanner-status.error { color: #b42318; }
-        .scanner-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 16px; }
-        .qr-result { margin: 12px 0; padding: 12px; border-radius: 8px; background: #e8f2ed; }
-        .qr-result p { margin: 5px 0; }
-        .scanner-form { display: grid; gap: 10px; }
-        .scanner-form label { color: #52665f; font-size: .86rem; font-weight: 600; }
-        .scanner-form input { width: 100%; margin-top: 5px; padding: 9px; border: 1px solid #bfd2c9; border-radius: 6px; font: inherit; }
-        .active-foods { display: grid; gap: 12px; }
-        .active-food { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid #dce7e2; border-radius: 9px; background: #f7faf8; }
-        .active-food h3 { margin: 0 0 5px; color: #176b52; }
-        .active-food p { margin: 3px 0; color: #52665f; }
-        .alert-panel { border-left: 4px solid #91a39b; }
-        .alert-panel.is-alert { border-left-color: #d97706; background: #fffaf0; }
-        .alert-panel.is-critical { border-left-color: #c83225; background: #fff7f6; }
-        .alert-heading { margin: 0 0 8px; font-size: .8rem; font-weight: 700; letter-spacing: .06em; }
-
-        #data-message {
-            margin: 0 0 18px;
-            padding: 13px 16px;
-            color: #173c31;
-            background: #e8f2ed;
-            border-radius: 8px;
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 11px;
+            border-radius: 20px;
+            font-size: .76rem;
             font-weight: 600;
+            border: 1px solid transparent;
         }
 
-        #data-message.error { color: #8d2018; background: #fff0ee; }
-        #food-state { margin: 0 0 12px; color: #61736c; }
+        .chip-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
 
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 10px 8px; border-bottom: 1px solid #e5ece8; text-align: left; white-space: nowrap; }
-        th { color: #52665f; font-size: .78rem; text-transform: uppercase; }
-        td { font-size: .9rem; }
-        .table-wrap { overflow-x: auto; }
+        .chip-ok .chip-dot { background: #16a34a; }
+        .chip-ok { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+
+        .chip-warn .chip-dot { background: var(--amber); }
+        .chip-warn { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-border); }
+
+        .chip-err .chip-dot { background: var(--red); }
+        .chip-err { background: var(--red-bg); color: var(--red); border-color: var(--red-border); }
+
+        .chip-info .chip-dot { background: var(--text-dim); }
+        .chip-info { background: var(--gray-bg); color: var(--text-muted); border-color: var(--border); }
+
+        .updated { font-size: .73rem; color: var(--text-dim); white-space: nowrap; }
+
+        /* ─── Sections ──────────────────────────────────────── */
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px 22px;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        /* ─── System Warning Banner ─────────────────────────── */
+        .system-banner {
+            display: none;
+            padding: 13px 18px;
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            font-size: .88rem;
+            font-weight: 600;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .system-banner.visible { display: flex; }
+
+        .system-banner.stale {
+            background: var(--amber-bg);
+            border: 1px solid var(--amber-border);
+            color: var(--amber);
+        }
+
+        .system-banner.error {
+            background: var(--red-bg);
+            border: 1px solid var(--red-border);
+            color: var(--red);
+        }
+
+        .system-banner.info {
+            background: var(--gray-bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        /* ─── Primary Status Card ───────────────────────────── */
+        .status-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 22px 24px;
+            margin-bottom: 16px;
+        }
+
+        .status-label {
+            font-size: .7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .status-main {
+            display: flex;
+            align-items: baseline;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .status-value {
+            font-size: 1.65rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .status-fresh  { color: #15803d; }
+        .status-soon   { color: var(--amber); }
+        .status-check  { color: var(--red); }
+        .status-other  { color: var(--text-muted); }
+
+        .status-reason {
+            font-size: .9rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        /* ─── Alert Strip ──────────────────────────────────── */
+        .alert-strip {
+            display: none;
+            padding: 11px 16px;
+            border-radius: var(--radius-sm);
+            font-size: .85rem;
+            font-weight: 600;
+            margin-top: 12px;
+            border-left: 3px solid var(--border);
+        }
+
+        .alert-strip.visible { display: block; }
+        .alert-strip.alert   { background: var(--amber-bg); color: var(--amber); border-left-color: var(--amber); }
+        .alert-strip.critical{ background: var(--red-bg);   color: var(--red);   border-left-color: var(--red); }
+
+        /* ─── Environment Sensors ──────────────────────────── */
+        .sensor-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .sensor-card {
+            background: var(--gray-bg);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            text-align: center;
+        }
+
+        .sensor-icon {
+            font-size: 1.3rem;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .sensor-label {
+            font-size: .68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--text-dim);
+            margin-bottom: 5px;
+        }
+
+        .sensor-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.2;
+        }
+
+        .sensor-unit {
+            font-size: .75rem;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }
+
+        /* ─── Food Section ─────────────────────────────────── */
+        .food-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .food-empty {
+            text-align: center;
+            padding: 32px 20px;
+            background: var(--gray-bg);
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+        }
+
+        .food-empty p {
+            font-size: .9rem;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .food-empty .btn {
+            padding: 10px 20px;
+            font-size: .85rem;
+        }
+
+        .food-summary {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 14px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .food-name { font-size: 1.15rem; font-weight: 700; color: var(--green); }
+        .food-cat  { font-size: .8rem; color: var(--text-muted); background: var(--green-light); padding: 2px 9px; border-radius: 12px; font-weight: 600; }
+
+        .food-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+        }
+
+        .food-field {
+            background: var(--gray-bg);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+        }
+
+        .food-field-label {
+            display: block;
+            font-size: .65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--text-dim);
+            margin-bottom: 3px;
+        }
+
+        .food-field-value {
+            font-size: .85rem;
+            font-weight: 600;
+            color: var(--text);
+            word-break: break-word;
+        }
+
+        .food-field-value.na { color: var(--text-dim); }
+
+        .food-actions { margin-top: 14px; }
+
+        /* ─── Foods in Fridge ──────────────────────────────── */
+        .fridge-summary {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 14px;
+            font-size: .85rem;
+        }
+
+        .fridge-count {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--green);
+        }
+
+        .fridge-overall { color: var(--text-muted); }
+        .fridge-overall.soon { color: var(--amber); }
+        .fridge-overall.check { color: var(--red); }
+
+        .active-foods-list { display: grid; gap: 10px; }
+
+        .active-food {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--gray-bg);
+        }
+
+        .active-food-info h3 { font-size: .9rem; font-weight: 700; color: var(--green); }
+        .active-food-info p  { font-size: .75rem; color: var(--text-muted); margin-top: 2px; }
+
+        .active-food-actions { display: flex; gap: 7px; flex-shrink: 0; }
+
+        /* ─── System Details ───────────────────────────────── */
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .detail-item {
+            background: var(--gray-bg);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+        }
+
+        .detail-label {
+            display: block;
+            font-size: .63rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--text-dim);
+            margin-bottom: 3px;
+        }
+
+        .detail-value {
+            font-size: .82rem;
+            font-weight: 600;
+            color: var(--text);
+            word-break: break-all;
+        }
+
+        .detail-value.mono { font-family: "Consolas", "Courier New", monospace; font-size: .7rem; }
+
+        /* ─── History Table ────────────────────────────────── */
+        .history-table-wrap {
+            overflow-x: auto;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .82rem;
+        }
+
+        thead { background: var(--gray-bg); }
+
+        th {
+            padding: 9px 12px;
+            text-align: left;
+            font-size: .66rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--text-dim);
+            white-space: nowrap;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 9px 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text);
+            white-space: nowrap;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tbody tr:hover td { background: #fafcfb; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: .7rem;
+            font-weight: 700;
+        }
+
+        .badge-fresh   { background: #f0fdf4; color: #15803d; }
+        .badge-soon    { background: var(--amber-bg); color: var(--amber); }
+        .badge-check   { background: var(--red-bg); color: var(--red); }
+        .badge-other   { background: var(--gray-bg); color: var(--text-muted); }
+
+        .door-open  { color: var(--amber); font-weight: 700; }
+        .door-closed{ color: var(--text-muted); }
+        .na-text    { color: var(--text-dim); }
+
+        /* ─── Buttons ──────────────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 0;
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: .8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity .15s, box-shadow .15s;
+        }
+
+        .btn:focus-visible {
+            outline: 2px solid var(--green);
+            outline-offset: 2px;
+        }
+
+        .btn-primary { background: var(--green); color: #fff; }
+        .btn-primary:hover { opacity: .88; }
+
+        .btn-secondary {
+            background: var(--green-light);
+            color: var(--green);
+            border: 1px solid var(--green-mid);
+        }
+
+        .btn-secondary:hover { background: #d4ebe0; }
+
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        .btn-sm { padding: 5px 10px; font-size: .74rem; }
+
+        /* ─── Dialogs ──────────────────────────────────────── */
+        dialog {
+            border: 0;
+            border-radius: 14px;
+            padding: 24px;
+            color: var(--text);
+            box-shadow: 0 16px 48px rgba(20,60,45,.22);
+            max-width: min(520px, calc(100vw - 28px));
+            width: 100%;
+        }
+
+        dialog::backdrop { background: rgba(10,35,25,.42); }
+
+        .scanner-preview {
+            width: 100%;
+            max-height: 280px;
+            border-radius: 8px;
+            background: #10241d;
+            object-fit: cover;
+            display: block;
+        }
+
+        .scanner-status { min-height: 22px; margin: 10px 0; font-size: .85rem; }
+        .scanner-status.error { color: var(--red); }
+
+        .scanner-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 14px; }
+
+        .qr-result {
+            margin: 12px 0;
+            padding: 12px;
+            border-radius: 8px;
+            background: var(--green-light);
+        }
+
+        .qr-result p { margin: 4px 0; font-size: .85rem; }
+
+        .scanner-form { display: grid; gap: 10px; }
+        .scanner-form label { font-size: .8rem; font-weight: 700; color: var(--text-muted); }
+        .scanner-form input, .scanner-form select {
+            width: 100%;
+            margin-top: 5px;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: .85rem;
+            color: var(--text);
+            background: var(--surface);
+        }
+
+        .scanner-form input:focus, .scanner-form select:focus {
+            outline: none;
+            border-color: var(--green);
+            box-shadow: 0 0 0 2px rgba(23,107,82,.15);
+        }
+
+        /* ─── Inline message ────────────────────────────────── */
+        #data-message {
+            display: none;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: .85rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+        }
+
+        #data-message.visible { display: block; }
+        #data-message.normal  { background: var(--green-light); color: var(--green); }
+        #data-message.error   { background: var(--red-bg);    color: var(--red); }
+
+        /* ─── Responsive ───────────────────────────────────── */
+        @media (max-width: 900px) {
+            .sensor-row { grid-template-columns: repeat(2, 1fr); }
+            .details-grid { grid-template-columns: repeat(2, 1fr); }
+        }
 
         @media (max-width: 680px) {
-            body { padding: 20px 14px 36px; }
-            header { align-items: flex-start; flex-direction: column; }
-            .connection { text-align: left; }
-            .grid { grid-template-columns: 1fr; }
-            .wide { grid-column: auto; }
-            section { padding: 16px; }
+            .app { padding: 0 14px 40px; }
+            .header { flex-direction: column; align-items: flex-start; padding: 16px 0 14px; }
+            .status-chips { justify-content: flex-start; }
+            .sensor-row { grid-template-columns: repeat(2, 1fr); }
+            .details-grid { grid-template-columns: repeat(2, 1fr); }
+            .food-grid { grid-template-columns: repeat(2, 1fr); }
+            .active-food { flex-direction: column; align-items: flex-start; }
+            .active-food-actions { margin-top: 8px; }
+            .status-value { font-size: 1.3rem; }
+        }
+
+        @media (max-width: 400px) {
+            .sensor-row { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <header>
-        <div>
+<div class="app">
+
+    <!-- Header -->
+    <header class="header">
+        <div class="brand">
             <h1>FreshGuard</h1>
-            <p style="margin: 5px 0 0; color: #61736c;">Food and environment monitoring</p>
+            <p>Food &amp; Environment Monitoring</p>
         </div>
-        <div class="connection" aria-live="polite">
-            <p id="connection-state">Loading...</p>
-            <p id="last-updated"></p>
+        <div class="status-chips" aria-live="polite">
+            <span id="connection-chip" class="chip chip-info">
+                <span class="chip-dot"></span>
+                <span id="connection-state">Loading…</span>
+            </span>
+            <span id="device-chip" class="chip chip-info" style="display:none">
+                <span class="chip-dot"></span>
+                <span id="device-state-text">Device</span>
+            </span>
+            <span class="updated" id="last-updated"></span>
         </div>
     </header>
 
-    <p id="data-message" role="status" hidden></p>
+    <!-- Single system warning banner -->
+    <div id="system-banner" class="system-banner info" role="alert" aria-live="assertive">
+        <span id="system-banner-text"></span>
+    </div>
 
-    <main class="grid">
-        <section>
-            <h2>Current Environment</h2>
-            <p class="source-label">Source: <strong id="reading-device">N/A</strong></p>
-            <div class="sensor-grid">
-                <div class="metric"><span class="label">Temperature</span><span class="value sensor-value" id="temperature">Data Unavailable</span></div>
-                <div class="metric"><span class="label">Humidity</span><span class="value sensor-value" id="humidity">Data Unavailable</span></div>
-                <div class="metric"><span class="label">Gas</span><span class="value sensor-value" id="gas">Data Unavailable</span></div>
-                <div class="metric"><span class="label">Door</span><span class="value sensor-value" id="door">Data Unavailable</span></div>
-            </div>
-        </section>
+    <!-- Inline message (for backend-level messages) -->
+    <div id="data-message" role="status"></div>
 
-        <section>
-            <h2>Reading Source</h2>
-            <div class="food-grid">
-                <div class="food-field"><span class="label">Device</span><span class="value" id="source-device">N/A</span></div>
-                <div class="food-field"><span class="label">Reading ID</span><span class="value" id="source-reading-id">N/A</span></div>
-                <div class="food-field"><span class="label">Captured</span><span class="value" id="source-captured">N/A</span></div>
-                <div class="food-field"><span class="label">Last Reading</span><span class="value" id="source-age">N/A</span></div>
-            </div>
-        </section>
-
-        <section>
-            <h2>Freshness</h2>
-            <span id="freshness-status" class="freshness-status status-unavailable">Data Unavailable</span>
-            <p id="freshness-reason" class="freshness-reason">N/A</p>
-        </section>
-
-        <section>
-            <div class="food-heading"><h2>Food Information</h2><button class="button" id="scan-food-qr" type="button">Scan Food QR</button></div>
-            <p id="food-state">Loading...</p>
-            <div class="food-grid">
-                <div class="food-field"><span class="label">Food Name</span><span class="value" id="food-name">N/A</span></div>
-                <div class="food-field"><span class="label">Category</span><span class="value" id="food-category">N/A</span></div>
-                <div class="food-field"><span class="label">Quantity</span><span class="value" id="food-quantity">N/A</span></div>
-                <div class="food-field"><span class="label">Storage Location</span><span class="value" id="food-location">N/A</span></div>
-                <div class="food-field"><span class="label">Inserted At</span><span class="value" id="food-inserted">N/A</span></div>
-                <div class="food-field"><span class="label">Manufacture Date</span><span class="value" id="food-manufacture">N/A</span></div>
-                <div class="food-field"><span class="label">Expiry Date</span><span class="value" id="food-expiry">N/A</span></div>
-                <div class="food-field"><span class="label">Food ID</span><span class="value" id="food-id">N/A</span></div>
-            </div>
-        </section>
-
-        <section>
-            <h2>Storage</h2>
-            <p><strong>Stored:</strong> <span id="storage-inserted">N/A</span></p>
-            <p><strong>Expiry:</strong> <span id="storage-expiry">N/A</span></p>
-        </section>
-
-        <section class="wide">
-            <h2>Foods in Fridge</h2>
-            <p id="active-foods-summary" class="muted">Foods in Fridge: 0 · Overall: Waiting for Reading</p>
-            <div id="active-foods" class="active-foods"><p class="muted">Loading active foods...</p></div>
-        </section>
-
-        <section class="alert-panel wide" id="alert-panel" aria-live="polite">
-            <p class="alert-heading" id="alert-heading">STATUS DETAILS</p>
-            <p id="alert-reason" style="margin: 0;">N/A</p>
-        </section>
-
-        <section class="wide">
-            <h2>Reading History</h2>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th><th>Food</th><th>Temperature</th><th>Humidity</th><th>Gas</th><th>Door</th><th>Freshness</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reading-history"></tbody>
-                </table>
-            </div>
-        </section>
-    </main>
-
-    <dialog id="qr-dialog" aria-labelledby="qr-dialog-title">
-        <h2 id="qr-dialog-title">Scan Food QR</h2>
-        <video id="qr-video" class="scanner-preview" playsinline muted hidden></video>
-        <canvas id="qr-canvas" hidden></canvas>
-        <p id="qr-status" class="scanner-status">Preparing scanner…</p>
-        <div id="qr-result" class="qr-result" hidden>
-            <p><strong>QR Code:</strong> <span id="qr-code-value"></span></p>
-            <p><strong>Category:</strong> <span id="qr-category-value"></span></p>
+    <!-- ── Primary Status ──────────────────────────────────── -->
+    <div class="status-card">
+        <div class="status-label">Current Food Status</div>
+        <div class="status-main">
+            <span id="freshness-status" class="status-value status-other">Waiting for device data</span>
         </div>
-        <form id="food-form" class="scanner-form" hidden>
-            <label>Food Name<input id="food-name-input" name="food_name" required maxlength="200"></label>
-            <label>Inserted At<input id="food-inserted-input" name="inserted_at" type="date" required></label>
-            <label>Quantity<input id="food-quantity-input" name="quantity" type="number" min="0" step="any"></label>
-            <label>Manufacture Date<input id="food-manufacture-input" name="manufacture_date" type="date"></label>
-            <label>Expiry Date<input id="food-expiry-input" name="expiry_date" type="date"></label>
-            <label>Storage Location<input id="food-location-input" name="storage_location" maxlength="200"></label>
-            <div class="scanner-actions"><button class="button" id="create-food" type="submit">Create Food</button></div>
-        </form>
-        <div id="food-success" class="qr-result" hidden></div>
-        <div class="scanner-actions"><button class="button secondary" id="close-qr" type="button">Close</button></div>
-    </dialog>
+        <p id="freshness-reason" class="status-reason">No device reading available</p>
+        <div id="alert-strip" class="alert-strip" aria-live="polite"></div>
+    </div>
 
-    <dialog id="food-history-dialog" aria-labelledby="food-history-title">
-        <h2 id="food-history-title">Food Freshness History</h2>
-        <div class="table-wrap"><table><thead><tr><th>Time</th><th>Status</th><th>Reason</th></tr></thead><tbody id="food-history-body"></tbody></table></div>
-        <div class="scanner-actions"><button class="button secondary" id="close-food-history" type="button">Close</button></div>
-    </dialog>
+    <!-- ── Environment Sensors ─────────────────────────────── -->
+    <section class="section">
+        <div class="section-title">Current Environment</div>
+        <div class="sensor-row">
+            <div class="sensor-card">
+                <div class="sensor-icon">🌡</div>
+                <div class="sensor-label">Temperature</div>
+                <div class="sensor-value" id="temperature">—</div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-icon">💧</div>
+                <div class="sensor-label">Humidity</div>
+                <div class="sensor-value" id="humidity">—</div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-icon">🌬</div>
+                <div class="sensor-label">Air Quality</div>
+                <div class="sensor-value" id="gas">—</div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-icon">🚪</div>
+                <div class="sensor-label">Door</div>
+                <div class="sensor-value" id="door">—</div>
+            </div>
+        </div>
+    </section>
 
-    <script>
-        const API_BASE_URL = "/api/v1";
-        const DASHBOARD_DEVICE_ID = "FG-ESP32-01";
-        const DASHBOARD_REFRESH_MS = 5000;
-        const STALE_AFTER_MS = 90000;
-        const UNAVAILABLE = "Data Unavailable";
-        let refreshInProgress = false;
-        let hasLoadedData = false;
+    <!-- ── Food ───────────────────────────────────────────── -->
+    <section class="section" id="food-section">
+        <div class="food-header">
+            <div class="section-title" style="margin-bottom:0">Food</div>
+            <button class="btn btn-secondary btn-sm" id="scan-food-qr" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="4" height="4"/></svg>
+                Scan Food QR
+            </button>
+        </div>
 
-        function byId(id) {
-            return document.getElementById(id);
+        <!-- No-food empty state -->
+        <div id="food-empty-state" class="food-empty">
+            <p>No food linked to this reading.</p>
+            <button class="btn btn-primary" id="scan-food-qr-empty" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="4" height="4"/></svg>
+                Scan Food QR
+            </button>
+        </div>
+
+        <!-- Linked food details -->
+        <div id="food-details" style="display:none">
+            <div class="food-summary">
+                <span class="food-name" id="food-name">—</span>
+                <span class="food-cat" id="food-category">—</span>
+            </div>
+            <div class="food-grid">
+                <div class="food-field"><span class="food-field-label">Quantity</span><span class="food-field-value na" id="food-quantity">—</span></div>
+                <div class="food-field"><span class="food-field-label">Storage Location</span><span class="food-field-value na" id="food-location">—</span></div>
+                <div class="food-field"><span class="food-field-label">Stored At</span><span class="food-field-value na" id="food-inserted">—</span></div>
+                <div class="food-field"><span class="food-field-label">Manufacture Date</span><span class="food-field-value na" id="food-manufacture">—</span></div>
+                <div class="food-field"><span class="food-field-label">Expiry Date</span><span class="food-field-value na" id="food-expiry">—</span></div>
+                <div class="food-field"><span class="food-field-label">Food ID</span><span class="food-field-value mono na" id="food-id">—</span></div>
+            </div>
+        </div>
+
+        <!-- Hidden for JS backward compat -->
+        <p id="food-state" style="display:none"></p>
+    </section>
+
+    <!-- ── Foods in Fridge ────────────────────────────────── -->
+    <section class="section">
+        <div class="section-title">Foods in Fridge</div>
+        <div class="fridge-summary">
+            <span class="fridge-count" id="fridge-count">0</span>
+            <span>items</span>
+            <span class="fridge-overall" id="fridge-overall">—</span>
+        </div>
+        <div id="active-foods" class="active-foods-list"><p class="na-text" id="active-foods-placeholder">Loading…</p></div>
+        <p id="active-foods-summary" style="display:none"></p>
+    </section>
+
+    <!-- ── System Details ──────────────────────────────────── -->
+    <section class="section">
+        <div class="section-title">System Details</div>
+        <div class="details-grid">
+            <div class="detail-item">
+                <span class="detail-label">Device</span>
+                <span class="detail-value" id="source-device">—</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Last Reading</span>
+                <span class="detail-value" id="source-age">—</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Captured</span>
+                <span class="detail-value" id="source-captured">—</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Reading ID</span>
+                <span class="detail-value mono" id="source-reading-id">—</span>
+            </div>
+        </div>
+        <!-- Hidden for JS backward compat -->
+        <p style="display:none" id="reading-device">—</p>
+        <p style="display:none" id="storage-inserted">—</p>
+        <p style="display:none" id="storage-expiry">—</p>
+    </section>
+
+    <!-- ── Reading History ─────────────────────────────────── -->
+    <section class="section">
+        <div class="section-title">Reading History</div>
+        <div class="history-table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Food</th>
+                        <th>Temp</th>
+                        <th>Humidity</th>
+                        <th>Gas</th>
+                        <th>Door</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="reading-history"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Hidden for JS backward compat -->
+    <section id="alert-panel" style="display:none" aria-live="polite">
+        <p id="alert-heading"></p>
+        <p id="alert-reason"></p>
+    </section>
+
+</div><!-- .app -->
+
+<!-- QR Scanner Dialog -->
+<dialog id="qr-dialog" aria-labelledby="qr-dialog-title">
+    <h2 id="qr-dialog-title" style="margin-bottom:14px;font-size:1.05rem">Scan Food QR</h2>
+    <video id="qr-video" class="scanner-preview" playsinline muted></video>
+    <canvas id="qr-canvas" style="display:none"></canvas>
+    <p id="qr-status" class="scanner-status">Preparing scanner…</p>
+    <div id="qr-result" class="qr-result" hidden>
+        <p><strong>QR Code:</strong> <span id="qr-code-value"></span></p>
+        <p><strong>Category:</strong> <span id="qr-category-value"></span></p>
+    </div>
+    <form id="food-form" class="scanner-form" hidden>
+        <label>Food Name<input id="food-name-input" name="food_name" required maxlength="200"></label>
+        <label>Stored At<input id="food-inserted-input" name="inserted_at" type="date" required></label>
+        <label>Quantity<input id="food-quantity-input" name="quantity" type="number" min="0" step="any"></label>
+        <label>Manufacture Date<input id="food-manufacture-input" name="manufacture_date" type="date"></label>
+        <label>Expiry Date<input id="food-expiry-input" name="expiry_date" type="date"></label>
+        <label>Storage Location<input id="food-location-input" name="storage_location" maxlength="200"></label>
+        <div class="scanner-actions"><button class="btn btn-primary" id="create-food" type="submit">Create Food</button></div>
+    </form>
+    <div id="food-success" class="qr-result" hidden></div>
+    <div class="scanner-actions"><button class="btn btn-secondary" id="close-qr" type="button">Close</button></div>
+</dialog>
+
+<!-- Food History Dialog -->
+<dialog id="food-history-dialog" aria-labelledby="food-history-title">
+    <h2 id="food-history-title" style="margin-bottom:14px;font-size:1rem">Food Freshness History</h2>
+    <div class="history-table-wrap">
+        <table><thead><tr><th>Time</th><th>Status</th><th>Reason</th></tr></thead>
+        <tbody id="food-history-body"></tbody></table>
+    </div>
+    <div class="scanner-actions"><button class="btn btn-secondary" id="close-food-history" type="button">Close</button></div>
+</dialog>
+
+<script>
+(function() {
+    "use strict";
+    /* ── Config ───────────────────────────────────────────── */
+    var API_BASE_URL = "/api/v1";
+    var DASHBOARD_DEVICE_ID = "FG-ESP32-01";
+    var DASHBOARD_REFRESH_MS = 5000;
+    var STALE_AFTER_MS = 90000;
+    var UNAVAILABLE = "—";
+
+    var refreshInProgress = false;
+    var hasLoadedData = false;
+
+    /* ── Helpers ───────────────────────────────────────────── */
+    function byId(id) { return document.getElementById(id); }
+
+    function fmt(val, suf) {
+        if (val === null || val === undefined || val === "") return UNAVAILABLE;
+        return String(val) + (suf || "");
+    }
+
+    function fmtFood(val) {
+        if (val === null || val === undefined || val === "") return null;
+        return String(val);
+    }
+
+    function badgeClass(status) {
+        if (status === "Fresh / Normal") return "badge-fresh";
+        if (status === "Use Soon")        return "badge-soon";
+        if (status === "Check Food")       return "badge-check";
+        return "badge-other";
+    }
+
+    function freshnessClass(status) {
+        if (status === "Fresh / Normal") return "status-fresh";
+        if (status === "Use Soon")        return "status-soon";
+        if (status === "Check Food")      return "status-check";
+        return "status-other";
+    }
+
+    function ageLabel(ms) {
+        var s = Math.floor(ms / 1000);
+        if (s < 60)  return s + "s ago";
+        var m = Math.floor(s / 60);
+        if (m < 60)  return m + "m ago";
+        return Math.floor(m / 60) + "h ago";
+    }
+
+    /* ── System Banner ────────────────────────────────────── */
+    var _currentBanner = null; // { type, text }
+
+    function showBanner(type, text) {
+        var b = byId("system-banner");
+        var t = byId("system-banner-text");
+        b.className = "system-banner visible " + type;
+        t.textContent = text;
+        _currentBanner = { type: type, text: text };
+    }
+
+    function hideBanner() {
+        byId("system-banner").className = "system-banner";
+        _currentBanner = null;
+    }
+
+    /* ── Message ──────────────────────────────────────────── */
+    function showMessage(msg, isError) {
+        var el = byId("data-message");
+        el.textContent = msg;
+        el.className = "data-message visible " + (isError ? "error" : "normal");
+    }
+
+    function hideMessage() { byId("data-message").className = "data-message"; }
+
+    /* ── Chip helpers ────────────────────────────────────── */
+    function setChip(elId, cssClass, label) {
+        var el = byId(elId);
+        el.className = "chip " + cssClass;
+        el.querySelector("span:last-child").textContent = label;
+    }
+
+    /* ── Sensor values ───────────────────────────────────── */
+    function setSensors(reading) {
+        byId("temperature").textContent = fmt(reading.temperature_c, " °C");
+        byId("humidity").textContent    = fmt(reading.humidity_pct, " %");
+        byId("gas").textContent         = fmt(reading.gas_raw);
+        var doorEl = byId("door");
+        if (typeof reading.door_open === "boolean") {
+            doorEl.innerHTML = reading.door_open
+                ? '<span class="door-open">OPEN</span>'
+                : '<span class="door-closed">CLOSED</span>';
+        } else {
+            doorEl.textContent = UNAVAILABLE;
         }
+    }
 
-        function formatNullable(value, suffix = "") {
-            if (value === null || value === undefined || value === "") {
-                return UNAVAILABLE;
-            }
-            return `${value}${suffix}`;
+    function setSensorsNA() {
+        byId("temperature").textContent = UNAVAILABLE;
+        byId("humidity").textContent    = UNAVAILABLE;
+        byId("gas").textContent         = UNAVAILABLE;
+        byId("door").textContent        = UNAVAILABLE;
+    }
+
+    /* ── Food fields ─────────────────────────────────────── */
+    function setFoodFields(food) {
+        var fields = [
+            ["food-name",        food && food.food_name],
+            ["food-category",   food && food.category],
+            ["food-quantity",   food && food.quantity],
+            ["food-location",   food && food.storage_location],
+            ["food-inserted",   food && food.inserted_at],
+            ["food-manufacture",food && food.manufacture_date],
+            ["food-expiry",     food && food.expiry_date],
+            ["food-id",         food && food.food_id]
+        ];
+        fields.forEach(function(f) {
+            var el = byId(f[0]);
+            if (!el) return;
+            var val = fmtFood(f[1]);
+            el.textContent = val || UNAVAILABLE;
+            el.classList.toggle("na", !val);
+        });
+
+        // Back compat hidden fields
+        byId("storage-inserted").textContent = fmtFood(food && food.inserted_at) || UNAVAILABLE;
+        byId("storage-expiry").textContent    = fmtFood(food && food.expiry_date) || UNAVAILABLE;
+    }
+
+    function showFoodDetails() {
+        byId("food-empty-state").style.display = "none";
+        byId("food-details").style.display = "block";
+    }
+
+    function showFoodEmpty() {
+        byId("food-empty-state").style.display = "block";
+        byId("food-details").style.display = "none";
+    }
+
+    /* ── System Details ──────────────────────────────────── */
+    function setSystemDetails(reading) {
+        byId("source-device").textContent     = fmtFood(reading.device_id) || UNAVAILABLE;
+        byId("reading-device").textContent     = fmtFood(reading.device_id) || UNAVAILABLE;
+        byId("source-reading-id").textContent  = fmtFood(reading.device_reading_id) || UNAVAILABLE;
+        var captured = reading.timestamp ? new Date(reading.timestamp) : null;
+        byId("source-captured").textContent   = (captured && !isNaN(captured.getTime()))
+            ? captured.toLocaleString("vi-VN") : (fmtFood(reading.timestamp) || UNAVAILABLE);
+        var ageMs = captured && !isNaN(captured.getTime()) ? Math.max(0, Date.now() - captured.getTime()) : null;
+        byId("source-age").textContent         = ageMs !== null ? ageLabel(ageMs) : UNAVAILABLE;
+    }
+
+    function setSystemDetailsNA() {
+        byId("source-device").textContent    = UNAVAILABLE;
+        byId("reading-device").textContent   = DASHBOARD_DEVICE_ID;
+        byId("source-reading-id").textContent = UNAVAILABLE;
+        byId("source-captured").textContent  = UNAVAILABLE;
+        byId("source-age").textContent        = UNAVAILABLE;
+    }
+
+    /* ── Alert strip ─────────────────────────────────────── */
+    function setAlertStrip(status, reason) {
+        var strip = byId("alert-strip");
+        if (!status || status === "Fresh / Normal") {
+            strip.className = "alert-strip"; strip.textContent = "";
+            return;
         }
+        strip.className = "alert-strip visible " + (status === "Use Soon" ? "alert" : "critical");
+        var heading = status === "Use Soon" ? "ACTIVE ALERT" : "CHECK FOOD";
+        strip.textContent = heading + (reason ? ": " + reason : "");
+    }
 
-        function formatFoodField(value) {
-            return value === null || value === undefined || value === "" ? "N/A" : String(value);
+    /* ── Freshness rendering ─────────────────────────────── */
+    function renderFreshness(status, reason) {
+        var el = byId("freshness-status");
+        el.textContent = fmt(status) || "Data Unavailable";
+        el.className = "status-value " + freshnessClass(status);
+        byId("freshness-reason").textContent = fmt(reason) || "";
+        setAlertStrip(status, reason);
+    }
+
+    /* ── History ─────────────────────────────────────────── */
+    function renderHistory(readings) {
+        var body = byId("reading-history");
+        body.innerHTML = "";
+        if (!Array.isArray(readings) || readings.length === 0) {
+            var r = body.insertRow();
+            var c = r.insertCell(); c.colSpan = 7; c.textContent = "No readings available";
+            c.style.textAlign = "center"; c.style.color = "var(--text-dim)";
+            return;
         }
-
-        function getFreshnessClass(status) {
-            if (status === "Fresh / Normal") return "freshness-status status-fresh";
-            if (status === "Use Soon") return "freshness-status status-use-soon";
-            if (status === "Check Food") return "freshness-status status-check-food";
-            return "freshness-status status-unavailable";
-        }
-
-        function setFoodFields(food) {
-            byId("food-name").textContent = formatFoodField(food?.food_name);
-            byId("food-category").textContent = formatFoodField(food?.category);
-            byId("food-quantity").textContent = formatFoodField(food?.quantity);
-            byId("food-location").textContent = formatFoodField(food?.storage_location);
-            byId("food-inserted").textContent = formatFoodField(food?.inserted_at);
-            byId("food-manufacture").textContent = formatFoodField(food?.manufacture_date);
-            byId("food-expiry").textContent = formatFoodField(food?.expiry_date);
-            byId("food-id").textContent = formatFoodField(food?.food_id);
-            byId("storage-inserted").textContent = formatFoodField(food?.inserted_at);
-            byId("storage-expiry").textContent = formatFoodField(food?.expiry_date);
-        }
-
-        function setUnavailableData() {
-            const staleBanner = byId("stale-banner");
-            if (staleBanner) staleBanner.remove();
-            byId("temperature").textContent = UNAVAILABLE;
-            byId("humidity").textContent = UNAVAILABLE;
-            byId("gas").textContent = UNAVAILABLE;
-            byId("door").textContent = UNAVAILABLE;
-            byId("reading-device").textContent = "N/A";
-            byId("source-device").textContent = "N/A";
-            byId("source-reading-id").textContent = "N/A";
-            byId("source-captured").textContent = "N/A";
-            byId("source-age").textContent = "N/A";
-            byId("freshness-status").textContent = UNAVAILABLE;
-            byId("freshness-status").className = getFreshnessClass(null);
-            byId("freshness-reason").textContent = "N/A";
-            byId("alert-reason").textContent = "N/A";
-            byId("alert-panel").className = "alert-panel wide";
-            setFoodFields(null);
-        }
-
-        function setLiveUnavailable(message) {
-            byId("temperature").textContent = "N/A";
-            byId("humidity").textContent = "N/A";
-            byId("gas").textContent = "N/A";
-            byId("door").textContent = "N/A";
-            byId("freshness-status").textContent = "DEVICE STALE";
-            byId("freshness-status").className = getFreshnessClass(null);
-            byId("freshness-reason").textContent = message;
-            byId("alert-heading").textContent = "DEVICE STALE";
-            byId("alert-reason").textContent = message;
-            byId("alert-panel").className = "alert-panel wide";
-        }
-
-        function showMessage(message, isError = false) {
-            const element = byId("data-message");
-            element.textContent = message;
-            element.className = isError ? "error" : "";
-            element.hidden = false;
-        }
-
-        function hideMessage() {
-            byId("data-message").hidden = true;
-        }
-
-        function addCell(row, value) {
-            const cell = document.createElement("td");
-            cell.textContent = value;
-            row.appendChild(cell);
-        }
-
-        function renderHistory(readings) {
-            const body = byId("reading-history");
-            body.replaceChildren();
-
-            if (!Array.isArray(readings) || readings.length === 0) {
-                const row = document.createElement("tr");
-                const cell = document.createElement("td");
-                cell.colSpan = 7;
-                cell.textContent = "No readings available";
-                row.appendChild(cell);
-                body.appendChild(row);
-                return;
-            }
-
-            readings.forEach(reading => {
-                const row = document.createElement("tr");
-                const timestamp = reading.timestamp ? new Date(reading.timestamp) : null;
-                const shownTime = timestamp && !Number.isNaN(timestamp.getTime())
-                    ? timestamp.toLocaleString("vi-VN")
-                    : formatNullable(reading.timestamp);
-                addCell(row, shownTime);
-                addCell(row, formatNullable(reading.food_id));
-                addCell(row, formatNullable(reading.temperature_c, " °C"));
-                addCell(row, formatNullable(reading.humidity_pct, " %"));
-                addCell(row, formatNullable(reading.gas_raw));
-                addCell(row, typeof reading.door_open === "boolean"
-                    ? (reading.door_open ? "OPEN" : "CLOSED")
-                    : UNAVAILABLE);
-                addCell(row, formatNullable(reading.freshness?.status));
-                body.appendChild(row);
-            });
-        }
-
-        function renderReading(reading) {
-            byId("temperature").textContent = formatNullable(reading.temperature_c, " °C");
-            byId("humidity").textContent = formatNullable(reading.humidity_pct, " %");
-            byId("gas").textContent = formatNullable(reading.gas_raw);
-            byId("door").textContent = typeof reading.door_open === "boolean"
-                ? (reading.door_open ? "OPEN" : "CLOSED")
-                : UNAVAILABLE;
-            const capturedAt = reading.timestamp ? new Date(reading.timestamp) : null;
-            const ageMs = capturedAt && !Number.isNaN(capturedAt.getTime())
-                ? Math.max(0, Date.now() - capturedAt.getTime()) : null;
-            byId("reading-device").textContent = formatFoodField(reading.device_id);
-            byId("source-device").textContent = formatFoodField(reading.device_id);
-            byId("source-reading-id").textContent = formatFoodField(reading.device_reading_id);
-            byId("source-captured").textContent = capturedAt && !Number.isNaN(capturedAt.getTime())
-                ? capturedAt.toLocaleString("vi-VN") : formatFoodField(reading.timestamp);
-            byId("source-age").textContent = ageMs === null ? "N/A" : formatAge(ageMs);
-            setStaleState(ageMs);
-
-            if (ageMs === null || ageMs > STALE_AFTER_MS) {
-                setLiveUnavailable("Latest device reading is stale");
-                return;
-            }
-
-            const freshness = reading.freshness;
-            const status = freshness?.status;
-            const reason = freshness?.reason;
-            byId("freshness-status").textContent = formatNullable(status);
-            byId("freshness-status").className = getFreshnessClass(status);
-            byId("freshness-reason").textContent = formatNullable(reason);
-            byId("alert-reason").textContent = formatNullable(reason);
-
-            const panel = byId("alert-panel");
-            panel.className = "alert-panel wide";
-            if (status === "Use Soon") {
-                panel.classList.add("is-alert");
-                byId("alert-heading").textContent = "ACTIVE ALERT";
-            } else if (status === "Check Food") {
-                panel.classList.add("is-critical");
-                byId("alert-heading").textContent = "CHECK FOOD";
+        readings.forEach(function(rd) {
+            var row = body.insertRow();
+            var ts = rd.timestamp ? new Date(rd.timestamp) : null;
+            var time = (ts && !isNaN(ts.getTime())) ? ts.toLocaleString("vi-VN") : UNAVAILABLE;
+            var cell = function(v) { var c = document.createElement("td"); c.textContent = v === null || v === undefined || v === "" ? "—" : v; return c; };
+            row.appendChild(cell(time));
+            row.appendChild(cell(rd.food_id || "—"));
+            var tCell = document.createElement("td");
+            tCell.textContent = rd.temperature_c != null ? rd.temperature_c + " °C" : "—";
+            if (rd.temperature_c == null) tCell.className = "na-text";
+            row.appendChild(tCell);
+            var hCell = document.createElement("td");
+            hCell.textContent = rd.humidity_pct != null ? rd.humidity_pct + " %" : "—";
+            if (rd.humidity_pct == null) hCell.className = "na-text";
+            row.appendChild(hCell);
+            var gCell = document.createElement("td");
+            gCell.textContent = rd.gas_raw != null ? rd.gas_raw : "—";
+            if (rd.gas_raw == null) gCell.className = "na-text";
+            row.appendChild(gCell);
+            var dCell = document.createElement("td");
+            if (rd.door_open === true)      dCell.innerHTML = '<span class="door-open">OPEN</span>';
+            else if (rd.door_open === false)dCell.innerHTML = '<span class="door-closed">CLOSED</span>';
+            else                            dCell.textContent = "—";
+            row.appendChild(dCell);
+            var fCell = document.createElement("td");
+            if (rd.freshness && rd.freshness.status) {
+                var sp = document.createElement("span");
+                sp.className = "badge " + badgeClass(rd.freshness.status);
+                sp.textContent = rd.freshness.status;
+                fCell.appendChild(sp);
             } else {
-                byId("alert-heading").textContent = "STATUS DETAILS";
+                fCell.textContent = "—";
+                fCell.className = "na-text";
             }
+            row.appendChild(fCell);
+        });
+    }
+
+    /* ── Foods in Fridge ─────────────────────────────────── */
+    function renderActiveFoods(foods) {
+        var root = byId("active-foods");
+        root.innerHTML = "";
+        var count = byId("fridge-count");
+        var overall = byId("fridge-overall");
+        var placeholder = byId("active-foods-placeholder");
+
+        if (!foods.length) {
+            count.textContent = "0";
+            overall.textContent = "No foods registered";
+            overall.className = "fridge-overall";
+            placeholder.textContent = "No foods in fridge.";
+            placeholder.className = "na-text";
+            root.appendChild(placeholder);
+            return;
         }
 
-        function formatAge(ageMs) {
-            const seconds = Math.floor(ageMs / 1000);
-            if (seconds < 60) return `${seconds} seconds ago`;
-            const minutes = Math.floor(seconds / 60);
-            if (minutes < 60) return `${minutes} minutes ago`;
-            return `${Math.floor(minutes / 60)} hours ago`;
+        count.textContent = String(foods.length);
+        var severity = { "Fresh / Normal": 0, "Use Soon": 1, "Check Food": 2 };
+        var known = foods.filter(function(f) { return f.freshness_status; });
+        var worst = known.reduce(function(cur, f) {
+            return !cur || severity[f.freshness_status] > severity[cur] ? f.freshness_status : cur;
+        }, null);
+        var waiting = foods.length - known.length;
+        var overallText = worst || "Waiting for Reading";
+        overall.textContent = overallText + (waiting ? " · " + waiting + " waiting" : "");
+        overall.className = "fridge-overall " + (worst === "Use Soon" ? "soon" : worst === "Check Food" ? "check" : "");
+        placeholder.style.display = "none";
+
+        foods.forEach(function(food) {
+            var card = document.createElement("div");
+            card.className = "active-food";
+            var info = document.createElement("div");
+            info.className = "active-food-info";
+            var h3 = document.createElement("h3");
+            h3.textContent = food.food_name || "—";
+            var p = document.createElement("p");
+            p.textContent = (food.category || "—") + " · " + (food.freshness_status || "Waiting");
+            var readingAt = food.reading_timestamp ? new Date(food.reading_timestamp) : null;
+            var deviceStale = readingAt && !isNaN(readingAt.getTime()) && (Date.now() - readingAt.getTime()) > STALE_AFTER_MS;
+            var p2 = document.createElement("p");
+            var evalAt = food.evaluated_at ? new Date(food.evaluated_at) : null;
+            var evalStr = (evalAt && !isNaN(evalAt.getTime())) ? evalAt.toLocaleString("vi-VN") : "—";
+            p2.textContent = "Last: " + evalStr + (deviceStale ? " · Stale" : "");
+            info.appendChild(h3); info.appendChild(p); info.appendChild(p2);
+            var actions = document.createElement("div");
+            actions.className = "active-food-actions";
+            var hist = document.createElement("button");
+            hist.className = "btn btn-secondary btn-sm";
+            hist.type = "button";
+            hist.textContent = "History";
+            hist.addEventListener("click", function() { showFoodHistory(food.food_id, food.food_name); });
+            var rem = document.createElement("button");
+            rem.className = "btn btn-secondary btn-sm";
+            rem.type = "button";
+            rem.textContent = "Remove";
+            rem.addEventListener("click", function() { deactivateFood(food.food_id); });
+            actions.appendChild(hist); actions.appendChild(rem);
+            card.appendChild(info); card.appendChild(actions);
+            root.appendChild(card);
+        });
+
+        // Also update hidden summary (back compat)
+        var summary = byId("active-foods-summary");
+        summary.textContent = "Foods in Fridge: " + foods.length + " · Overall: " + overallText + (waiting ? " · " + waiting + " food waiting for reading" : "");
+    }
+
+    /* ── Render reading ───────────────────────────────────── */
+    function renderReading(reading) {
+        var captured = reading.timestamp ? new Date(reading.timestamp) : null;
+        var ageMs = captured && !isNaN(captured.getTime()) ? Math.max(0, Date.now() - captured.getTime()) : null;
+
+        setSensors(reading);
+        setSystemDetails(reading);
+
+        if (ageMs === null || ageMs > STALE_AFTER_MS) {
+            // Device stale
+            showBanner("warn", "⚠ Device data is stale — Last reading was " + (ageMs !== null ? ageLabel(ageMs) : "unknown") + " ago");
+            setSensorsNA();
+            renderFreshness(null, "Latest device reading is stale. Live values temporarily unavailable.");
+            setChip("connection-chip", "chip-warn", "Backend Connected");
+            byId("device-chip").style.display = "inline-flex";
+            setChip("device-chip", "chip-warn", "Device Stale");
+            byId("last-updated").textContent = ageMs !== null ? ageLabel(ageMs) + " ago" : "";
+            return;
         }
 
-        function setStaleState(ageMs) {
-            const existing = byId("stale-banner");
-            if (existing) existing.remove();
-            if (ageMs !== null && ageMs > STALE_AFTER_MS) {
-                const banner = document.createElement("p");
-                banner.id = "stale-banner";
-                banner.className = "stale-banner";
-                banner.textContent = "STALE DATA — No recent device data";
-                byId("data-message").before(banner);
-            }
+        hideBanner();
+        setChip("connection-chip", "chip-ok", "Backend Connected");
+        byId("device-chip").style.display = "inline-flex";
+        setChip("device-chip", "chip-ok", "Device Online");
+        byId("last-updated").textContent = "Updated " + new Date().toLocaleTimeString("vi-VN");
+
+        var freshness = reading.freshness;
+        var status = freshness && freshness.status;
+        var reason  = freshness && freshness.reason;
+        renderFreshness(status, reason);
+    }
+
+    /* ── No data state ───────────────────────────────────── */
+    function renderNoData() {
+        hideBanner();
+        setSensorsNA();
+        setSystemDetailsNA();
+        renderFreshness("Data Unavailable", "Waiting for device data");
+        setChip("connection-chip", "chip-info", "Backend Connected");
+        byId("device-chip").style.display = "inline-flex";
+        setChip("device-chip", "chip-info", "Waiting");
+        byId("last-updated").textContent = "";
+        byId("food-state").textContent = "No reading available";
+        showFoodEmpty();
+        setFoodFields(null);
+        renderHistory([]);
+    }
+
+    /* ── Error state ──────────────────────────────────────── */
+    function renderLoadError(msg) {
+        hideBanner();
+        setSensorsNA();
+        setSystemDetailsNA();
+        renderFreshness("Data Unavailable", msg);
+        setChip("connection-chip", "chip-err", "Backend Unavailable");
+        byId("device-chip").style.display = "none";
+        byId("last-updated").textContent = "";
+        showMessage(msg, true);
+        setFoodFields(null);
+        renderHistory([]);
+    }
+
+    /* ── Food lookup ──────────────────────────────────────── */
+    function loadFood(foodId) {
+        if (!foodId) {
+            byId("food-state").textContent = "No food linked";
+            showFoodEmpty();
+            setFoodFields(null);
+            return;
         }
-
-        async function loadFood(foodId) {
-            if (!foodId) {
-                byId("food-state").textContent = "No food linked";
-                setFoodFields(null);
-                return;
-            }
-
-            byId("food-state").textContent = "Loading food information...";
-            try {
-                const response = await fetch(
-                    `${API_BASE_URL}/foods/${encodeURIComponent(foodId)}`
-                );
-                const result = await response.json();
-                if (!response.ok || !result.success || !result.food) {
-                    throw new Error("Food information unavailable");
-                }
+        byId("food-state").textContent = "Loading food information…";
+        fetch(API_BASE_URL + "/foods/" + encodeURIComponent(foodId))
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                if (!result.success || !result.food) throw new Error("Food unavailable");
                 setFoodFields(result.food);
+                showFoodDetails();
                 byId("food-state").textContent = "Food linked to this reading";
-            } catch (error) {
+            })
+            .catch(function() {
                 setFoodFields(null);
-                byId("food-state").textContent = "Food information unavailable";
-                console.error("Failed to load food information:", error);
-            }
-        }
+                showFoodEmpty();
+                byId("food-state").textContent = "Food unavailable";
+            });
+    }
 
-        async function loadHistory() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/readings?device_id=${encodeURIComponent(DASHBOARD_DEVICE_ID)}&limit=20`);
-                const result = await response.json();
-                if (!response.ok || !result.success) {
-                    throw new Error("Unable to load history");
-                }
-                renderHistory(result.data);
-            } catch (error) {
+    /* ── History ──────────────────────────────────────────── */
+    function loadHistory() {
+        fetch(API_BASE_URL + "/readings?device_id=" + encodeURIComponent(DASHBOARD_DEVICE_ID) + "&limit=20")
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                if (!result.success) throw new Error();
+                renderHistory(result.data || []);
+            })
+            .catch(function() {
                 renderHistory([]);
-                const cell = byId("reading-history").querySelector("td");
-                if (cell) cell.textContent = "Unable to load history";
-                console.error("Failed to load reading history:", error);
-            }
-        }
-
-        function renderActiveFoods(foods) {
-            const root = byId("active-foods");
-            root.replaceChildren();
-            const summary = byId("active-foods-summary");
-            if (!foods.length) {
-                summary.textContent = "Foods in Fridge: 0 · Overall: Waiting for Reading";
-                const empty = document.createElement("p");
-                empty.className = "muted";
-                empty.textContent = "No foods in fridge.";
-                root.appendChild(empty);
-                return;
-            }
-            foods.forEach(food => {
-                const card = document.createElement("article");
-                card.className = "active-food";
-                const details = document.createElement("div");
-                const title = document.createElement("h3");
-                title.textContent = food.food_name;
-                const category = document.createElement("p");
-                category.textContent = food.category;
-                const inserted = document.createElement("p");
-                inserted.textContent = `Inserted: ${food.inserted_at}`;
-                const id = document.createElement("p");
-                id.textContent = `Food ID: ${food.food_id}`;
-                const status = document.createElement("p");
-                status.textContent = `Latest Freshness: ${food.freshness_status || "WAITING FOR READING"}`;
-                const reason = document.createElement("p");
-                reason.textContent = `Reason: ${food.freshness_reason || "No persisted reading yet."}`;
-                const evaluated = document.createElement("p");
-                const evaluatedAt = food.evaluated_at ? new Date(food.evaluated_at) : null;
-                const readingAt = food.reading_timestamp ? new Date(food.reading_timestamp) : null;
-                const deviceStale = readingAt && !Number.isNaN(readingAt.getTime())
-                    && Date.now() - readingAt.getTime() > STALE_AFTER_MS;
-                evaluated.textContent = `Last Evaluated: ${evaluatedAt && !Number.isNaN(evaluatedAt.getTime()) ? evaluatedAt.toLocaleString("vi-VN") : "N/A"}${deviceStale ? " · Device stale" : ""}`;
-                details.append(title, category, inserted, id, status, reason, evaluated);
-                const actions = document.createElement("div");
-                const history = document.createElement("button");
-                history.className = "button secondary";
-                history.type = "button";
-                history.textContent = "View History";
-                history.addEventListener("click", () => showFoodHistory(food.food_id, food.food_name));
-                const remove = document.createElement("button");
-                remove.className = "button secondary";
-                remove.type = "button";
-                remove.style.marginTop = "8px";
-                remove.textContent = "Remove from Fridge";
-                remove.addEventListener("click", () => deactivateActiveFood(food.food_id));
-                actions.append(history, remove);
-                card.append(details, actions);
-                root.appendChild(card);
             });
-            const severity = { "Fresh / Normal": 0, "Use Soon": 1, "Check Food": 2 };
-            const known = foods.filter(food => food.freshness_status);
-            const worst = known.reduce((current, food) => (
-                !current || severity[food.freshness_status] > severity[current]
-                    ? food.freshness_status : current
-            ), null);
-            const waiting = foods.length - known.length;
-            const overall = worst || "Waiting for Reading";
-            summary.textContent = `Foods in Fridge: ${foods.length} · Overall: ${overall}${waiting ? ` · ${waiting} food waiting for reading` : ""}`;
-        }
+    }
 
-        async function loadActiveFoods() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/foods/active/freshness`);
-                const result = await response.json();
-                if (!response.ok || !result.success) throw new Error(result.message || "Unable to load active foods");
+    /* ── Foods in Fridge ───────────────────────────────────── */
+    function loadActiveFoods() {
+        fetch(API_BASE_URL + "/foods/active/freshness")
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                if (!result.success) throw new Error();
                 renderActiveFoods(result.data || []);
-            } catch (error) {
-                const root = byId("active-foods");
-                root.replaceChildren();
-                const message = document.createElement("p");
-                message.className = "muted";
-                message.textContent = "Active foods unavailable";
-                root.appendChild(message);
-                console.error("Failed to load active foods:", error);
-            }
-        }
+            })
+            .catch(function() {
+                renderActiveFoods([]);
+            });
+    }
 
-        async function deactivateActiveFood(foodId) {
-            if (!window.confirm("Remove this food from the fridge? The food history will be preserved.")) return;
-            try {
-                const response = await fetch(`${API_BASE_URL}/foods/${encodeURIComponent(foodId)}/deactivate`, { method: "POST" });
-                const result = await response.json().catch(() => ({}));
-                if (!response.ok || !result.success) throw new Error(result.message || result.error || "Unable to remove food");
-                await loadActiveFoods();
-            } catch (error) {
-                showMessage(error.message, true);
-            }
-        }
+    function deactivateFood(foodId) {
+        if (!window.confirm("Remove this food from the fridge?")) return;
+        fetch(API_BASE_URL + "/foods/" + encodeURIComponent(foodId) + "/deactivate", { method: "POST" })
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                if (!result.success) throw new Error(result.message);
+                loadActiveFoods();
+            })
+            .catch(function(err) { showMessage(err.message, true); });
+    }
 
-        async function showFoodHistory(foodId, foodName) {
-            const dialog = byId("food-history-dialog");
-            const body = byId("food-history-body");
-            byId("food-history-title").textContent = `${foodName} — Freshness History`;
-            body.replaceChildren();
-            const loading = body.insertRow().insertCell();
-            loading.colSpan = 3;
-            loading.textContent = "Loading...";
-            dialog.showModal();
-            try {
-                const response = await fetch(`${API_BASE_URL}/foods/${encodeURIComponent(foodId)}/freshness-history?limit=20`);
-                const result = await response.json();
-                if (!response.ok || !result.success) throw new Error(result.message || "Unable to load history");
-                body.replaceChildren();
-                if (!result.data.length) {
-                    const row = body.insertRow();
-                    row.insertCell().textContent = "No freshness snapshots";
-                    row.cells[0].colSpan = 3;
+    function showFoodHistory(foodId, foodName) {
+        var dialog = byId("food-history-dialog");
+        var body = byId("food-history-body");
+        byId("food-history-title").textContent = foodName + " — History";
+        body.innerHTML = "";
+        var loading = body.insertRow().insertCell();
+        loading.colSpan = 3; loading.textContent = "Loading…";
+        dialog.showModal();
+        fetch(API_BASE_URL + "/foods/" + encodeURIComponent(foodId) + "/freshness-history?limit=20")
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                body.innerHTML = "";
+                if (!result.success || !result.data.length) {
+                    var r2 = body.insertRow(); var c = r2.insertCell(); c.colSpan = 3; c.textContent = "No freshness snapshots"; c.style.textAlign = "center";
                     return;
                 }
-                result.data.forEach(snapshot => {
-                    const row = body.insertRow();
-                    row.insertCell().textContent = snapshot.reading_timestamp || snapshot.evaluated_at;
-                    row.insertCell().textContent = snapshot.freshness_status;
-                    row.insertCell().textContent = snapshot.freshness_reason;
+                result.data.forEach(function(s) {
+                    var row = body.insertRow();
+                    row.insertCell().textContent = s.reading_timestamp || s.evaluated_at || "—";
+                    var statusCell = row.insertCell();
+                    var sp = document.createElement("span");
+                    sp.className = "badge " + badgeClass(s.freshness_status);
+                    sp.textContent = s.freshness_status || "—";
+                    statusCell.appendChild(sp);
+                    row.insertCell().textContent = s.freshness_reason || "—";
                 });
-            } catch (error) {
-                body.replaceChildren();
-                const row = body.insertRow();
-                row.insertCell().textContent = error.message;
-                row.cells[0].colSpan = 3;
-            }
-        }
+            })
+            .catch(function(err) {
+                body.innerHTML = "";
+                var r3 = body.insertRow(); var c = r3.insertCell(); c.colSpan = 3; c.textContent = err.message; c.style.textAlign = "center";
+            });
+    }
 
-        function renderNoData() {
-            setUnavailableData();
-            byId("temperature").textContent = "N/A";
-            byId("humidity").textContent = "N/A";
-            byId("gas").textContent = "N/A";
-            byId("door").textContent = "N/A";
-            byId("reading-device").textContent = DASHBOARD_DEVICE_ID;
-            byId("source-device").textContent = DASHBOARD_DEVICE_ID;
-            byId("source-reading-id").textContent = "N/A";
-            byId("source-captured").textContent = "N/A";
-            byId("source-age").textContent = "Never";
-            byId("freshness-status").textContent = "Waiting for device data";
-            byId("freshness-reason").textContent = "No device reading available";
-            byId("alert-heading").textContent = "DEVICE WAITING";
-            byId("alert-reason").textContent = "Waiting for device data";
-            byId("food-state").textContent = "No reading available";
-            showMessage("NO DATA — Waiting for sensor readings...");
-            renderHistory([]);
-        }
+    /* ── Main poll ─────────────────────────────────────────── */
+    function loadDashboard() {
+        if (refreshInProgress) return;
+        refreshInProgress = true;
+        byId("connection-state").textContent = hasLoadedData ? "Refreshing…" : "Loading…";
 
-        function renderLoadError(message) {
-            setUnavailableData();
-            byId("food-state").textContent = "Food information unavailable";
-            showMessage(message, true);
-            renderHistory([]);
-            const cell = byId("reading-history").querySelector("td");
-            if (cell) cell.textContent = message;
-        }
-
-        async function loadDashboard() {
-            if (refreshInProgress) return;
-            refreshInProgress = true;
-            byId("connection-state").textContent = hasLoadedData ? "Refreshing..." : "Loading...";
-
-            try {
-                let response;
-                try {
-                    response = await fetch(`${API_BASE_URL}/readings/latest?device_id=${encodeURIComponent(DASHBOARD_DEVICE_ID)}`);
-                } catch (error) {
-                    renderLoadError("Backend unavailable");
-                    byId("connection-state").textContent = "Backend unavailable";
-                    hasLoadedData = false;
-                    return;
-                }
-
-                let result;
-                try {
-                    result = await response.json();
-                } catch (error) {
-                    renderLoadError("Unable to load data");
-                    byId("connection-state").textContent = "Unable to load data";
-                    hasLoadedData = false;
-                    return;
-                }
-
-                if (response.status === 404 && result.error === "NO_DATA") {
+        fetch(API_BASE_URL + "/readings/latest?device_id=" + encodeURIComponent(DASHBOARD_DEVICE_ID))
+            .then(function(response) { return response.json().then(function(j) { return { ok: response.ok, status: response.status, body: j }; }); })
+            .then(function(res) {
+                if (!res.ok && res.status === 404 && res.body.error === "NO_DATA") {
                     renderNoData();
-                    byId("connection-state").textContent = "Backend: Connected · Device: Waiting";
-                    byId("last-updated").textContent = "";
                     hasLoadedData = false;
                     return;
                 }
-
-                if (response.ok && result.success && result.data == null) {
-                    renderNoData();
-                    byId("connection-state").textContent = "Backend: Connected · Device: Waiting";
-                    byId("last-updated").textContent = "";
-                    hasLoadedData = false;
-                    return;
+                if (!res.ok || !res.body.success || !res.body.data) {
+                    throw new Error("Unable to load data");
                 }
-
-                if (!response.ok || !result.success || !result.data) {
-                    renderLoadError("Unable to load data");
-                    byId("connection-state").textContent = "Unable to load data";
-                    hasLoadedData = false;
-                    return;
-                }
-
                 hideMessage();
-                const reading = result.data;
+                var reading = res.body.data;
                 renderReading(reading);
-                await Promise.all([
-                    loadFood(reading.food_id),
-                    loadHistory(),
-                    loadActiveFoods(),
-                ]);
-
                 hasLoadedData = true;
-                const captured = reading.timestamp ? new Date(reading.timestamp) : null;
-                const ageMs = captured && !Number.isNaN(captured.getTime()) ? Date.now() - captured.getTime() : null;
-                byId("connection-state").textContent = ageMs !== null && ageMs <= STALE_AFTER_MS
-                    ? "Backend: Connected · Device: Online"
-                    : "Backend: Connected · Device: Stale";
-                byId("last-updated").textContent = `Last updated: ${new Date().toLocaleTimeString("vi-VN")}`;
-            } catch (error) {
-                renderLoadError("Unable to load data");
-                byId("connection-state").textContent = "Unable to load data";
+                return Promise.all([loadFood(reading.food_id), loadHistory(), loadActiveFoods()]);
+            })
+            .catch(function(err) {
+                renderLoadError("Unable to connect to FreshGuard service.");
                 hasLoadedData = false;
-                console.error("Failed to load dashboard data:", error);
-            } finally {
-                refreshInProgress = false;
-            }
-        }
+            })
+            .then(function() { refreshInProgress = false; });
+    }
 
-        // Phase 1 QR flow: one fixed category mapping, then the existing food API.
-        const QR_CATEGORY_MAP = Object.freeze({
-            "FG-MEAT": "MEAT",
-            "FG-DAIRY": "DAIRY",
-            "FG-VEGETABLE": "VEGETABLE",
-            "FG-FRUIT": "FRUIT",
-            "FG-COOKED": "COOKED_FOOD",
+    /* ── QR Scanner ───────────────────────────────────────── */
+    var QR_CATEGORY_MAP = Object.freeze({
+        "FG-MEAT": "MEAT", "FG-DAIRY": "DAIRY",
+        "FG-VEGETABLE": "VEGETABLE", "FG-FRUIT": "FRUIT", "FG-COOKED": "COOKED_FOOD"
+    });
+    var qrStream = null, qrFrameRequest = null, qrCode = null, qrSubmitInProgress = false;
+
+    function setQrStatus(msg, isErr) {
+        var el = byId("qr-status");
+        el.textContent = msg;
+        el.className = "scanner-status" + (isErr ? " error" : "");
+    }
+
+    function stopQrCamera() {
+        if (qrFrameRequest !== null) { cancelAnimationFrame(qrFrameRequest); qrFrameRequest = null; }
+        if (qrStream) { qrStream.getTracks().forEach(function(t) { t.stop(); }); qrStream = null; }
+        var v = byId("qr-video");
+        if (v) { v.pause(); v.srcObject = null; }
+    }
+
+    function resetQrDialog() {
+        stopQrCamera();
+        qrCode = null; qrSubmitInProgress = false;
+        byId("qr-result").hidden = true;
+        byId("food-form").hidden = true;
+        byId("food-success").hidden = true;
+        byId("food-form").reset();
+        byId("create-food").disabled = false;
+    }
+
+    function loadQrLibrary() {
+        if (window.jsQR) return Promise.resolve();
+        if (window._fgQrPromise) return window._fgQrPromise;
+        window._fgQrPromise = new Promise(function(resolve, reject) {
+            var s = document.createElement("script");
+            s.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+            s.async = true;
+            s.onload = function() { window.jsQR ? resolve() : reject(new Error("QR unavailable")); };
+            s.onerror = function() { reject(new Error("Unable to load QR scanner")); };
+            document.head.appendChild(s);
         });
-        let qrStream = null;
-        let qrFrameRequest = null;
-        let qrCode = null;
-        let qrSubmitInProgress = false;
+        return window._fgQrPromise;
+    }
 
-        function setQrStatus(message, error = false) {
-            const status = byId("qr-status");
-            status.textContent = message;
-            status.classList.toggle("error", error);
-        }
+    function showQrResult(value) {
+        qrCode = value;
+        stopQrCamera();
+        byId("qr-code-value").textContent = value;
+        byId("qr-category-value").textContent = QR_CATEGORY_MAP[value] || "Unknown";
+        byId("qr-result").hidden = false;
+        byId("food-form").hidden = false;
+        var localDate = new Date();
+        localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+        byId("food-inserted-input").value = localDate.toISOString().slice(0, 10);
+        setQrStatus("QR recognized. Enter food details.");
+    }
 
-        function stopQrCamera() {
-            if (qrFrameRequest !== null) {
-                cancelAnimationFrame(qrFrameRequest);
-                qrFrameRequest = null;
+    function scanQrFrame() {
+        if (!qrStream) return;
+        var video = byId("qr-video");
+        var canvas = byId("qr-canvas");
+        if (video.readyState >= 2 && video.videoWidth > 0) {
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            var ctx = canvas.getContext("2d", { willReadFrequently: true });
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            var result = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "dontInvert" });
+            if (result) {
+                var v = String(result.data || "").trim();
+                if (QR_CATEGORY_MAP.hasOwnProperty(v)) { showQrResult(v); return; }
+                setQrStatus("Invalid FreshGuard QR code", true);
             }
-            if (qrStream) {
-                qrStream.getTracks().forEach(track => track.stop());
-                qrStream = null;
-            }
-            const video = byId("qr-video");
-            video.pause();
-            video.srcObject = null;
-            video.hidden = true;
         }
+        qrFrameRequest = requestAnimationFrame(scanQrFrame);
+    }
 
-        function resetQrDialog() {
-            stopQrCamera();
-            qrCode = null;
-            qrSubmitInProgress = false;
-            byId("qr-status").classList.remove("error");
-            byId("qr-result").hidden = true;
-            byId("food-form").hidden = true;
-            byId("food-success").hidden = true;
-            byId("food-form").reset();
-            byId("create-food").disabled = false;
-        }
-
-        function loadQrLibrary() {
-            if (window.jsQR) return Promise.resolve();
-            if (window._freshguardQrLibraryPromise) return window._freshguardQrLibraryPromise;
-            window._freshguardQrLibraryPromise = new Promise((resolve, reject) => {
-                const script = document.createElement("script");
-                script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
-                script.async = true;
-                script.onload = () => window.jsQR ? resolve() : reject(new Error("QR scanner unavailable"));
-                script.onerror = () => reject(new Error("Unable to load QR scanner"));
-                document.head.appendChild(script);
-            });
-            return window._freshguardQrLibraryPromise;
-        }
-
-        function showQrResult(value) {
-            qrCode = value;
-            stopQrCamera();
-            byId("qr-code-value").textContent = value;
-            byId("qr-category-value").textContent = QR_CATEGORY_MAP[value];
-            byId("qr-result").hidden = false;
-            byId("food-form").hidden = false;
-            const localDate = new Date();
-            localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
-            byId("food-inserted-input").value = localDate.toISOString().slice(0, 10);
-            setQrStatus("QR recognized. Enter food details.");
-        }
-
-        function scanQrFrame() {
-            if (!qrStream) return;
-            const video = byId("qr-video");
-            const canvas = byId("qr-canvas");
-            if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                const context = canvas.getContext("2d", { willReadFrequently: true });
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const image = context.getImageData(0, 0, canvas.width, canvas.height);
-                const result = window.jsQR(image.data, image.width, image.height, { inversionAttempts: "dontInvert" });
-                if (result) {
-                    const value = String(result.data || "").trim();
-                    if (Object.prototype.hasOwnProperty.call(QR_CATEGORY_MAP, value)) {
-                        showQrResult(value);
-                        return;
-                    }
-                    setQrStatus("Invalid FreshGuard QR", true);
-                }
-            }
-            qrFrameRequest = requestAnimationFrame(scanQrFrame);
-        }
-
-        async function openQrScanner() {
-            resetQrDialog();
-            byId("qr-dialog").showModal();
-            setQrStatus("Requesting camera permission...");
-            try {
-                await loadQrLibrary();
-                if (!navigator.mediaDevices?.getUserMedia) {
-                    throw new Error("Camera access is not supported in this browser");
-                }
-                qrStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: "environment" } },
-                    audio: false,
-                });
-                const video = byId("qr-video");
-                video.srcObject = qrStream;
+    function openQrScanner() {
+        resetQrDialog();
+        byId("qr-dialog").showModal();
+        setQrStatus("Requesting camera…");
+        loadQrLibrary()
+            .then(function() {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("Camera not supported");
+                return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+            })
+            .then(function(stream) {
+                qrStream = stream;
+                var video = byId("qr-video");
+                video.srcObject = stream;
                 video.hidden = false;
-                await video.play();
-                setQrStatus("Point the camera at an approved FreshGuard QR.");
+                video.play();
+                setQrStatus("Point camera at FreshGuard QR code.");
                 scanQrFrame();
-            } catch (error) {
+            })
+            .catch(function(err) {
                 stopQrCamera();
-                setQrStatus(error.name === "NotAllowedError" ? "Camera permission denied." : error.message, true);
-            }
-        }
-
-        async function createFoodFromQr(event) {
-            event.preventDefault();
-            if (!qrCode || qrSubmitInProgress) return;
-            qrSubmitInProgress = true;
-            byId("create-food").disabled = true;
-            setQrStatus("Creating food...");
-            const payload = {
-                qr_code: qrCode,
-                food_name: byId("food-name-input").value.trim(),
-                inserted_at: byId("food-inserted-input").value,
-            };
-            const optional = [
-                ["quantity", byId("food-quantity-input").value],
-                ["manufacture_date", byId("food-manufacture-input").value],
-                ["expiry_date", byId("food-expiry-input").value],
-                ["storage_location", byId("food-location-input").value.trim()],
-            ];
-            optional.forEach(([key, value]) => {
-                if (value !== "") payload[key] = key === "quantity" ? Number(value) : value;
+                setQrStatus(err.name === "NotAllowedError" ? "Camera permission denied." : err.message, true);
             });
-            try {
-                const response = await fetch(`${API_BASE_URL}/foods`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
-                const result = await response.json().catch(() => ({}));
-                if (!response.ok || !result.success || !result.food) {
-                    throw new Error(result.message || result.error || `Food creation failed (${response.status})`);
-                }
-                const food = result.food;
+    }
+
+    function createFoodFromQr(e) {
+        e.preventDefault();
+        if (!qrCode || qrSubmitInProgress) return;
+        qrSubmitInProgress = true;
+        byId("create-food").disabled = true;
+        setQrStatus("Creating food…");
+        var payload = {
+            qr_code: qrCode,
+            food_name: byId("food-name-input").value.trim(),
+            inserted_at: byId("food-inserted-input").value
+        };
+        [["quantity", "food-quantity-input", true], ["manufacture_date", "food-manufacture-input", false],
+         ["expiry_date", "food-expiry-input", false], ["storage_location", "food-location-input", false]]
+            .forEach(function(item) {
+                var v = byId(item[1]).value;
+                if (v !== "") payload[item[0]] = item[2] ? Number(v) : v;
+            });
+        fetch(API_BASE_URL + "/foods", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                if (!result.success || !result.food) throw new Error(result.message || "Creation failed");
+                var food = result.food;
                 byId("food-form").hidden = true;
-                const success = byId("food-success");
-                success.replaceChildren();
-                const title = document.createElement("strong");
-                title.textContent = "Food Added";
-                success.appendChild(title);
-                [["Food ID", food.food_id], ["Food Name", food.food_name],
-                 ["Category", food.category], ["Inserted At", food.inserted_at]].forEach(([label, value]) => {
-                    const line = document.createElement("p");
-                    const name = document.createElement("strong");
-                    name.textContent = `${label}: `;
-                    line.append(name, document.createTextNode(value ?? ""));
-                    success.appendChild(line);
-                });
-                byId("food-success").hidden = false;
+                var success = byId("food-success");
+                success.innerHTML = "<strong>Food Added</strong>";
+                [["Food ID", food.food_id], ["Name", food.food_name], ["Category", food.category], ["Stored", food.inserted_at]]
+                    .forEach(function(pair) {
+                        var p = document.createElement("p");
+                        p.innerHTML = "<strong>" + pair[0] + ":</strong> " + (pair[1] || "—");
+                        success.appendChild(p);
+                    });
+                success.hidden = false;
                 setQrStatus("Food created successfully.");
-                const activate = document.createElement("button");
-                activate.className = "button";
+                var activate = document.createElement("button");
+                activate.className = "btn btn-primary";
                 activate.type = "button";
+                activate.style.marginTop = "10px";
                 activate.textContent = "Add to Fridge";
-                activate.addEventListener("click", async () => {
+                activate.addEventListener("click", function() {
                     activate.disabled = true;
-                    try {
-                        const response = await fetch(`${API_BASE_URL}/foods/${encodeURIComponent(food.food_id)}/activate`, { method: "POST" });
-                        const activation = await response.json().catch(() => ({}));
-                        if (!response.ok || !activation.success) throw new Error(activation.message || activation.error || "Unable to activate food");
-                        activate.textContent = "Added to Fridge";
-                        setQrStatus("Food is active in the fridge.");
-                        await loadActiveFoods();
-                    } catch (error) {
-                        activate.disabled = false;
-                        setQrStatus(error.message, true);
-                    }
+                    fetch(API_BASE_URL + "/foods/" + encodeURIComponent(food.food_id) + "/activate", { method: "POST" })
+                        .then(function(r) { return r.json(); })
+                        .then(function(a) {
+                            if (!a.success) throw new Error(a.message);
+                            activate.textContent = "Added to Fridge ✓";
+                            setQrStatus("Food is active in the fridge.");
+                            loadActiveFoods();
+                        })
+                        .catch(function(err) {
+                            activate.disabled = false;
+                            setQrStatus(err.message, true);
+                        });
                 });
-                byId("food-success").appendChild(activate);
-            } catch (error) {
-                setQrStatus(error.message, true);
+                success.appendChild(activate);
+            })
+            .catch(function(err) {
+                setQrStatus(err.message, true);
                 byId("create-food").disabled = false;
-            } finally {
-                qrSubmitInProgress = false;
-            }
-        }
+            })
+            .then(function() { qrSubmitInProgress = false; });
+    }
 
-        byId("scan-food-qr").addEventListener("click", openQrScanner);
-        byId("close-qr").addEventListener("click", () => {
-            stopQrCamera();
-            byId("qr-dialog").close();
-        });
-        byId("qr-dialog").addEventListener("cancel", stopQrCamera);
-        byId("food-form").addEventListener("submit", createFoodFromQr);
-        byId("close-food-history").addEventListener("click", () => byId("food-history-dialog").close());
-        window.addEventListener("beforeunload", stopQrCamera);
+    /* ── Event listeners ─────────────────────────────────── */
+    function wireUp(id, event, handler) {
+        var el = byId(id); if (el) el.addEventListener(event, handler);
+    }
 
-        loadDashboard();
-        loadActiveFoods();
-        setInterval(loadDashboard, DASHBOARD_REFRESH_MS);
-    </script>
+    wireUp("scan-food-qr",        "click", openQrScanner);
+    wireUp("scan-food-qr-empty",  "click", openQrScanner);
+    wireUp("close-qr",            "click", function() { stopQrCamera(); byId("qr-dialog").close(); });
+    wireUp("qr-dialog",           "cancel", stopQrCamera);
+    wireUp("food-form",           "submit", createFoodFromQr);
+    wireUp("close-food-history",  "click", function() { byId("food-history-dialog").close(); });
+    window.addEventListener("beforeunload", stopQrCamera);
+
+    /* ── Init ─────────────────────────────────────────────── */
+    loadDashboard();
+    loadActiveFoods();
+    setInterval(loadDashboard, DASHBOARD_REFRESH_MS);
+})();
+</script>
 </body>
 </html>

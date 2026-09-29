@@ -1159,7 +1159,9 @@
         if (ageMs === null || ageMs > STALE_AFTER_MS) {
             // Device stale
             showBanner("warn", "Warning: System data is currently stale. Last successful reading was " + (ageMs !== null ? ageLabel(ageMs) : "unknown") + ".");
-            setSensorsNA();
+            // Keep the last measured values visible while clearly marking the
+            // device stale. The backend may legitimately return an older
+            // OFFLINE_RECOVERED reading after the ESP32 reconnects.
             renderFreshness("DEVICE STALE", "No recent freshness evaluation / Latest device reading is stale.");
             setChip("connection-chip", "chip-ok", "Backend Connected");
             byId("device-chip").style.display = "inline-flex";

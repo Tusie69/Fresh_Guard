@@ -51,6 +51,7 @@ const bool FORMAT_FS_ON_MOUNT_FAILURE = false;
 #define YELLOW_LED 25
 #define RED_LED 26
 #define BUZZER_PIN 17 // User confirmed ACTIVE buzzer, HIGH = on.
+#define DOOR_SENSOR_PIN 16 // MC-38 reed switch: RX2 / GPIO16
 #define LCD_RS 13
 #define LCD_EN 14
 #define LCD_D4 27
@@ -61,6 +62,8 @@ const bool FORMAT_FS_ON_MOUNT_FAILURE = false;
 const uint32_t SENSOR_INTERVAL_MS = 5000; // Local display only; POST every 60s.
 const uint32_t WIFI_RETRY_MS = 15000;
 const uint32_t LCD_REFRESH_MS = 250;
+const uint32_t DOOR_DEBOUNCE_MS = 50;
+const uint32_t DOOR_THRESHOLD_SECONDS = 30;
 const size_t MAX_RECORD_BYTES = 768;
 const char* PENDING_PATH = "/littlefs/pending_readings.jsonl";
 const char* TEMP_PATH = "/littlefs/pending_readings.tmp";
@@ -91,16 +94,27 @@ bool captureReading = false;
 bool rtcDetected = false, ntpStarted = false, rtcSynced = false;
 bool timeUnavailable = true;
 String captureTimestamp, deferredReading;
+bool deferredPersistAttempted = false, deferredHeldLogged = false;
 String freshnessStatus = "Status: Pending";
 bool backendOnline = false, apiError = false;
 uint32_t statusChangedAt = 0;
 bool warningBeepPending = false;
+
+// MC-38 state: INPUT_PULLUP, LOW = magnet near/door closed,
+// HIGH = magnet away/door open. The switch is wired between GPIO16 and GND.
+bool doorRawOpen = false;
+bool doorOpen = false;
+bool doorReadingPending = false;
+bool doorThresholdReported = false;
+uint32_t doorRawChangedAt = 0;
+uint32_t doorOpenedAt = 0;
 
 bool storageReady = false, storageFull = false;
 size_t pendingCount = 0, pendingBytes = 0, effectiveMaxBytes = 0;
 size_t acknowledgedBytes = 0, nextRecordEnd = 0;
 size_t cycleSent = 0, cycleTotal = 0;
 bool syncActive = false;
+bool syncRequested = false;
 FILE* compactInput = nullptr;
 FILE* compactOutput = nullptr;
 size_t compactBytes = 0;
@@ -238,8 +252,27 @@ bool appendOfflineReading(const String& payload) {
   pendingBytes += bytes;
   ++pendingCount;
   storageFull = false;
-  Serial.printf("PERSISTED Q:%u %s\n", unsigned(pendingCount), payload.c_str());
+  Serial.printf("READING PERSISTED Q:%u %s\n", unsigned(pendingCount), payload.c_str());
   return true;
+}
+
+void maintainDeferredReading() {
+  if (!deferredReading.length()) return;
+  // One attempt per captured reading, then retry only after successful
+  // compaction frees space. Fatal errors stay latched until manual repair.
+  if (storageReady && !compactOutput && !deferredPersistAttempted) {
+    deferredPersistAttempted = true;
+    if (appendOfflineReading(deferredReading)) {
+      deferredReading = "";
+      deferredPersistAttempted = false;
+      deferredHeldLogged = false;
+      return;
+    }
+  }
+  if (!deferredHeldLogged) {
+    Serial.println("READING HELD IN RAM: not durable; new reading capture paused");
+    deferredHeldLogged = true;
+  }
 }
 
 // Copy remaining records over successive loop ticks, using bounded RAM.
@@ -258,6 +291,7 @@ void beginCompaction() {
     return;
   }
   compactBytes = 0;
+  Serial.printf("COMPACTION START: retiring %u bytes\n", unsigned(acknowledgedBytes));
 }
 
 void maintainCompaction() {
@@ -278,7 +312,8 @@ void maintainCompaction() {
   pendingBytes = compactBytes;
   acknowledgedBytes = 0;
   storageFull = pendingCount >= MAX_OFFLINE_RECORDS || pendingBytes >= effectiveMaxBytes;
-  Serial.printf("SYNC complete; durable pending Q:%u\n", unsigned(pendingCount));
+  deferredPersistAttempted = false; // Retry the held payload before another sync cycle.
+  Serial.printf("COMPACTION COMPLETE; durable pending Q:%u\n", unsigned(pendingCount));
 }
 
 bool handlePermanentFailure(int code) {
@@ -396,8 +431,15 @@ void processRetryQueue() {
     if (xQueueReceive(resultQueue, &result, 0) != pdTRUE) return;
     inFlight = false;
     Serial.printf("HTTP %d attempt:%lu\n", result.code, static_cast<unsigned long>(attempts));
+    // An append can fail while HTTP is in flight. Consume the result, but
+    // do not quarantine, advance the FIFO or compact a suspect filesystem.
+    if (!storageReady) {
+      Serial.println("STORAGE ERROR: HTTP result consumed; original retained for recovery");
+      return;
+    }
     bool retired = false;
     if (result.confirmed) {
+      Serial.println("BACKEND CONFIRMED: validated acknowledgement");
       backendOnline = true;
       apiError = false;
       handleBackendResponse(result);
@@ -408,7 +450,7 @@ void processRetryQueue() {
       bool permanent = result.code >= 400 && result.code < 500 &&
                        result.code != 408 && result.code != 429;
       if (permanent) retired = handlePermanentFailure(result.code);
-      else Serial.println("Delivery unconfirmed; original kept for next 60s cycle");
+      else Serial.println("DELIVERY UNCONFIRMED: original kept for next sync cycle");
     }
     if (retired) {
       acknowledgedBytes = nextRecordEnd;
@@ -483,7 +525,13 @@ void maintainWiFi() {
   bool connected = WiFi.status() == WL_CONNECTED;
   if (connected != wasWiFiConnected) {
     wasWiFiConnected = connected;
-    if (connected) Serial.printf("WiFi connected: %s\n", WiFi.localIP().toString().c_str());
+    if (connected) {
+      Serial.printf("WIFI CONNECTED/RECONNECTED: %s\n", WiFi.localIP().toString().c_str());
+      if (pendingCount > 0) {
+        syncRequested = true;
+        Serial.println("SYNC REQUESTED: WiFi available with pending records");
+      }
+    }
     else { backendOnline = false; Serial.println("WiFi disconnected"); }
   }
   if (!connected && millis() - lastWiFiRetry >= WIFI_RETRY_MS) {
@@ -509,6 +557,42 @@ void maintainWiFi() {
   }
 }
 
+uint32_t getDoorOpenDurationSeconds() {
+  if (!doorOpen) return 0;
+  return (millis() - doorOpenedAt) / 1000UL;
+}
+
+void maintainDoorSensor() {
+  uint32_t now = millis();
+  bool rawOpen = digitalRead(DOOR_SENSOR_PIN) == HIGH;
+  if (rawOpen != doorRawOpen) {
+    doorRawOpen = rawOpen;
+    doorRawChangedAt = now;
+  }
+  if (doorRawOpen != doorOpen && now - doorRawChangedAt >= DOOR_DEBOUNCE_MS) {
+    doorOpen = doorRawOpen;
+    if (doorOpen) {
+      doorOpenedAt = now;
+      doorThresholdReported = false;
+      Serial.println("MC-38: DOOR OPEN");
+    } else {
+      uint32_t openSeconds = doorOpenedAt ? (now - doorOpenedAt) / 1000UL : 0;
+      Serial.printf("MC-38: DOOR CLOSED | previous open duration:%lu s\n",
+                    static_cast<unsigned long>(openSeconds));
+      doorOpenedAt = 0;
+      doorThresholdReported = false;
+    }
+  }
+  bool thresholdReached = doorOpen && doorOpenedAt != 0 &&
+                          now - doorOpenedAt >= DOOR_THRESHOLD_SECONDS * 1000UL;
+  if (thresholdReached && !doorThresholdReported) {
+    doorThresholdReported = true;
+    doorReadingPending = true;
+    Serial.printf("MC-38: door threshold reached (%lu s); priority reading queued\n",
+                  static_cast<unsigned long>(DOOR_THRESHOLD_SECONDS));
+  }
+}
+
 String buildReading(const String& timestamp) {
   JsonDocument doc;
   doc["device_id"] = DEVICE_ID;
@@ -520,9 +604,8 @@ String buildReading(const String& timestamp) {
   if (isfinite(temperature)) doc["temperature_c"] = temperature;
   if (isfinite(humidity)) doc["humidity_pct"] = humidity;
   if (gasValid) doc["gas_raw"] = gasRaw;
-  // TEMPORARY PLACEHOLDER: reed switch is physically absent.
-  doc["door_open"] = false;
-  doc["open_duration_seconds"] = 0;
+  doc["door_open"] = doorOpen;
+  doc["open_duration_seconds"] = getDoorOpenDurationSeconds();
   if (FOOD_ID && FOOD_ID[0]) doc["food_id"] = FOOD_ID;
   String payload;
   size_t written = serializeJson(doc, payload);
@@ -562,6 +645,10 @@ void maintainSensorRead() {
                 isfinite(temperature) ? String(temperature, 1).c_str() : "null",
                 isfinite(humidity) ? String(humidity, 1).c_str() : "null",
                 gasValid ? String(gasRaw).c_str() : "null");
+  Serial.printf("MC-38 Door:%s Open:%lu s Alert:%s\n",
+                doorOpen ? "OPEN" : "CLOSED",
+                static_cast<unsigned long>(getDoorOpenDurationSeconds()),
+                doorThresholdReported ? "THRESHOLD_REPORTED" : "NO");
   if (!captureReading || !ENABLE_BACKEND) return;
   if (!captureTimestamp.length()) {
     Serial.println("TIME ERROR: no valid RTC/NTP time; new reading skipped");
@@ -572,6 +659,8 @@ void maintainSensorRead() {
     return;
   }
   deferredReading = buildReading(captureTimestamp);
+  deferredPersistAttempted = false;
+  deferredHeldLogged = false;
 }
 
 void lcdPrintLine(uint8_t row, String text) {
@@ -609,6 +698,12 @@ void setup() {
     pinMode(pin, OUTPUT);
     digitalWrite(pin, LOW);
   }
+  pinMode(DOOR_SENSOR_PIN, INPUT_PULLUP);
+  doorRawOpen = digitalRead(DOOR_SENSOR_PIN) == HIGH;
+  doorOpen = doorRawOpen;
+  doorRawChangedAt = millis();
+  if (doorOpen) doorOpenedAt = millis();
+  Serial.printf("MC-38 initial state: %s\n", doorOpen ? "DOOR OPEN" : "DOOR CLOSED");
   lcd.begin(16, 2);
   lcdPrintLine(0, "FreshGuard");
   lcdPrintLine(1, "BOOTING...");
@@ -636,34 +731,40 @@ void setup() {
   lastReading = lastSync = lastSensorRead = lastWiFiRetry = millis();
   Serial.printf("Backend: %s | device:%s | interval:%lu ms\n", SERVER_URL, DEVICE_ID,
                 static_cast<unsigned long>(SEND_INTERVAL_MS));
-  Serial.println("Ready. First reading/sync after 60s; boot self-tests disabled.");
+  Serial.println("Ready. First reading after 60s; recovered queue syncs on WiFi connection; boot self-tests disabled.");
 }
 
 void loop() {
+  maintainDoorSensor();
   maintainWiFi();
   maintainCompaction();
   uint32_t now = millis();
-  if (!gasSampling && now - lastReading >= SEND_INTERVAL_MS) {
+  if (!gasSampling && !deferredReading.length() && now - lastReading >= SEND_INTERVAL_MS) {
     lastReading = lastSensorRead = now;
+    startSensorRead(true);
+  } else if (doorReadingPending && !gasSampling && !deferredReading.length()) {
+    doorReadingPending = false;
+    lastSensorRead = now;
     startSensorRead(true);
   } else if (!gasSampling && now - lastSensorRead >= SENSOR_INTERVAL_MS) {
     lastSensorRead = now;
     startSensorRead(false);
   }
   maintainSensorRead();
-  if (deferredReading.length() && !compactOutput) {
-    appendOfflineReading(deferredReading);
-    // Overflow/failure explicitly reports loss of NEW samples. Existing unsent
-    // records are never evicted. No RAM-only fallback pretending to be durable.
-    deferredReading = "";
-  }
+  maintainDeferredReading();
   // Finish this cycle's sensor capture before starting the bounded FIFO batch.
+  // A full queue may still drain while the single RAM slot waits for space.
   if (ENABLE_BACKEND && httpReady && storageReady && !gasSampling &&
-      !syncActive && !inFlight && !compactOutput && now - lastSync >= SYNC_INTERVAL_MS) {
+      !syncActive && !inFlight && !compactOutput && pendingCount > 0 &&
+      WiFi.status() == WL_CONNECTED &&
+      (syncRequested || now - lastSync >= SYNC_INTERVAL_MS)) {
     lastSync = now;
     cycleSent = 0;
     cycleTotal = pendingCount;
-    syncActive = pendingCount > 0 && WiFi.status() == WL_CONNECTED;
+    syncActive = true;
+    syncRequested = false;
+    Serial.printf("SYNC START Q:%u batch limit:%u\n",
+                  unsigned(pendingCount), unsigned(MAX_SYNC_PER_CYCLE));
   }
   processRetryQueue();
   updateBuzzer();

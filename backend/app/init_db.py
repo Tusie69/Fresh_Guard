@@ -10,6 +10,9 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             device_id TEXT NOT NULL,
             timestamp TEXT NOT NULL,
+            received_at TEXT NULL,
+            delivery_delay_seconds REAL NULL,
+            ingest_status TEXT NULL,
             temperature_c REAL,
             humidity_pct REAL,
             gas_raw INTEGER,
@@ -40,6 +43,9 @@ def init_db():
             "ALTER TABLE sensor_readings ADD COLUMN food_id TEXT NULL"
         )
     for column, declaration in (
+        ("received_at", "TEXT NULL"),
+        ("delivery_delay_seconds", "REAL NULL"),
+        ("ingest_status", "TEXT NULL"),
         ("device_reading_id", "TEXT NULL"),
         ("freshness_status", "TEXT NULL"),
         ("freshness_reason", "TEXT NULL"),
@@ -106,6 +112,37 @@ def init_db():
             FOREIGN KEY (food_id) REFERENCES food_items(food_id)
         )
     """)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS notification_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_key TEXT NOT NULL UNIQUE,
+            notification_type TEXT NOT NULL CHECK (
+                notification_type IN ('FOOD_USE_SOON', 'FOOD_CHECK_FOOD', 'FOOD_RECOVERED')
+            ),
+            food_id TEXT NULL,
+            reading_id INTEGER NULL,
+            payload_json TEXT NOT NULL,
+            delivery_status TEXT NOT NULL DEFAULT 'PENDING' CHECK (
+                delivery_status IN ('PENDING', 'DELIVERED', 'FAILED')
+            ),
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT NULL,
+            created_at TEXT NOT NULL,
+            delivered_at TEXT NULL,
+            claim_token TEXT NULL,
+            lease_until TEXT NULL,
+            FOREIGN KEY (reading_id) REFERENCES sensor_readings(id),
+            FOREIGN KEY (food_id) REFERENCES food_items(food_id)
+        )
+    """)
+
+    outbox_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(notification_outbox)")
+    }
+    for column in ("claim_token", "lease_until"):
+        if column not in outbox_columns:
+            connection.execute(f"ALTER TABLE notification_outbox ADD COLUMN {column} TEXT NULL")
 
     connection.execute("""
         CREATE TABLE IF NOT EXISTS temperature_exposure_state (

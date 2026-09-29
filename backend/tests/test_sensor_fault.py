@@ -252,9 +252,10 @@ def test_event_insert_failure_rolls_back_reading_and_fault_state(
         connection.close()
 
     reading_id = str(uuid.uuid4())
-    with pytest.raises(sqlite3.IntegrityError):
-        post_reading(sensor_client, seconds=2, temperature_c=temperature,
-                     device_reading_id=reading_id)
+    response = post_reading(sensor_client, seconds=2, temperature_c=temperature,
+                            device_reading_id=reading_id)
+    assert response.status_code == 503
+    assert response.json["error"] == "DATABASE_ERROR"
 
     state = fault_state(sensor_client, "temperature")
     if event_type == "SENSOR_RECOVERED":

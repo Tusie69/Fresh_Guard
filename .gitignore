@@ -10,6 +10,7 @@ __pycache__/
 venv/
 .env
 .env.*
+!.env.example
 
 # Node / dashboard
 node_modules/

@@ -394,8 +394,9 @@ def test_event_insert_failure_rolls_back_combined_reading_and_transition(system,
         kwargs["temperature"] = 6
     elif event_type == "SENSOR_FAULT":
         kwargs["temperature"] = None
-    with pytest.raises(sqlite3.IntegrityError):
-        post_reading(system, 5, reading_id=reading_id, **kwargs)
+    response = post_reading(system, 5, reading_id=reading_id, **kwargs)
+    assert response.status_code == 503
+    assert response.json["error"] == "DATABASE_ERROR"
     assert rows(system, "SELECT COUNT(*) AS n FROM sensor_readings")[0]["n"] == 0
     assert rows(system, "SELECT event_type FROM events") == []
 

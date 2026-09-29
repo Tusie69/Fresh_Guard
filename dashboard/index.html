@@ -6,7 +6,7 @@
     <title>FreshGuard Dashboard</title>
     <link rel="icon" href="/static/favicon.ico">
     <style>
-        /* ─── Reset & Base ─────────────────────────────────── */
+        /* â”€â”€â”€ Reset & Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
@@ -44,14 +44,14 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* ─── App Shell ────────────────────────────────────── */
+        /* â”€â”€â”€ App Shell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .app {
             max-width: 1280px;
             margin: 0 auto;
             padding: 0 20px 60px;
         }
 
-        /* ─── Header ────────────────────────────────────────── */
+        /* â”€â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .header {
             display: flex;
             justify-content: space-between;
@@ -115,7 +115,7 @@
 
         .updated { font-size: .73rem; color: var(--text-dim); white-space: nowrap; }
 
-        /* ─── Sections ──────────────────────────────────────── */
+        /* â”€â”€â”€ Sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .section {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -134,7 +134,7 @@
             margin-bottom: 16px;
         }
 
-        /* ─── System Warning Banner ─────────────────────────── */
+        /* â”€â”€â”€ System Warning Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .system-banner {
             display: none;
             padding: 13px 18px;
@@ -166,7 +166,7 @@
             color: var(--text-muted);
         }
 
-        /* ─── Primary Status Card ───────────────────────────── */
+        /* â”€â”€â”€ Primary Status Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .status-card {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -210,7 +210,7 @@
             line-height: 1.5;
         }
 
-        /* ─── Alert Strip ──────────────────────────────────── */
+        /* â”€â”€â”€ Alert Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .alert-strip {
             display: none;
             padding: 11px 16px;
@@ -225,7 +225,7 @@
         .alert-strip.alert   { background: var(--amber-bg); color: var(--amber); border-left-color: var(--amber); }
         .alert-strip.critical{ background: var(--red-bg);   color: var(--red);   border-left-color: var(--red); }
 
-        /* ─── Environment Sensors ──────────────────────────── */
+        /* â”€â”€â”€ Environment Sensors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .sensor-row {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -269,7 +269,7 @@
             margin-left: 2px;
         }
 
-        /* ─── Food Section ─────────────────────────────────── */
+        /* â”€â”€â”€ Food Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .food-header {
             display: flex;
             align-items: center;
@@ -342,7 +342,7 @@
 
         .food-actions { margin-top: 14px; }
 
-        /* ─── Foods in Fridge ──────────────────────────────── */
+        /* â”€â”€â”€ Foods in Fridge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .fridge-summary {
             display: flex;
             align-items: baseline;
@@ -379,7 +379,91 @@
 
         .active-food-actions { display: flex; gap: 7px; flex-shrink: 0; }
 
-        /* ─── System Details ───────────────────────────────── */
+        .fridge-layout {
+            display: grid;
+            grid-template-columns: minmax(220px, 30%) 1fr;
+            gap: 22px;
+            align-items: stretch;
+        }
+
+        .fridge-illustration {
+            min-height: 250px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: #eaf3ee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fridge-illustration::after {
+            content: "";
+            position: absolute;
+            inset: auto 12% 10px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(18, 63, 50, .12);
+            filter: blur(5px);
+        }
+
+        .fridge-shell {
+            width: 138px;
+            height: 208px;
+            border: 4px solid var(--green-dark);
+            border-radius: 14px 14px 9px 9px;
+            background: #fff;
+            box-shadow: 8px 8px 0 rgba(22, 90, 67, .1);
+            position: relative;
+            z-index: 1;
+            padding: 10px 12px;
+        }
+
+        .fridge-door { height: 73%; border-bottom: 2px solid #cfe1d8; position: relative; }
+        .fridge-freezer { height: 27%; position: relative; }
+        .fridge-door::after, .fridge-freezer::after {
+            content: ""; position: absolute; right: 5px; top: 50%; width: 4px; height: 28px;
+            border-radius: 4px; background: var(--green);
+        }
+
+        .fridge-shelf { position: absolute; left: 9px; right: 18px; height: 3px; background: #d4e6dd; }
+        .fridge-shelf.one { top: 38%; } .fridge-shelf.two { top: 70%; }
+        .fridge-food-dot { position: absolute; width: 18px; height: 14px; border-radius: 5px; }
+        .fridge-food-dot.a { left: 19px; top: 23%; background: #f3b562; }
+        .fridge-food-dot.b { left: 45px; top: 52%; background: #7bc89b; }
+        .fridge-food-dot.c { left: 78px; top: 23%; background: #ef8e84; }
+        .fridge-food-dot.d { left: 76px; top: 78%; background: #8fb7d9; }
+        .fridge-label { position: absolute; bottom: 12px; left: 0; right: 0; text-align: center; color: var(--green); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+
+        .active-foods-list { align-content: start; }
+        .active-foods-list.has-foods { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .active-food { background: #fff; border-color: var(--border); box-shadow: 0 2px 8px rgba(18,63,50,.05); }
+        .active-food-info h3 { font-size: .98rem; }
+        .active-food-info .food-status { display: inline-block; width: fit-content; margin-top: 4px; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+        .active-food-info .food-status.soon { color: #9a6100; background: #fff3d6; }
+        .active-food-info .food-status.fresh { color: #15733d; background: #e6f6ec; }
+        .active-food-info .food-status.check { color: #b93828; background: #fde9e6; }
+        .food-card-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--green-light); color: var(--green); font-size: 1.1rem; flex-shrink: 0; }
+        .active-food-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        @media (max-width: 760px) { .fridge-layout { grid-template-columns: 1fr; } .fridge-illustration { min-height: 190px; } }
+
+        /* Compact Food view: the registry is the primary content. */
+        #view-food .food-panel, #view-food .foods-panel { padding: 12px 16px; }
+        #view-food .food-panel .panel-heading { margin-bottom: 8px; }
+        #view-food .food-empty { min-height: 50px; padding: 10px 14px; display: flex; align-items: center; gap: 16px; text-align: left; }
+        #view-food .food-empty p { margin: 0; flex: 1; }
+        #view-food .food-empty p::after { content: " Scan a QR code to link a food item."; display: block; font-size: .78rem; margin-top: 3px; color: var(--text-dim); }
+        #view-food .food-empty .btn { flex-shrink: 0; padding: 8px 14px; }
+        #view-food .fridge-layout { display: block; }
+        #view-food .fridge-illustration { min-height: 180px; }
+        #view-food .fridge-summary { margin-bottom: 0; }
+        #view-food .active-food { min-height: 112px; padding: 12px; }
+        #view-food .active-food-actions { margin-top: 8px; }
+        @media (max-width: 900px) { #view-food .active-foods-list.has-foods { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 600px) { #view-food .active-foods-list.has-foods { grid-template-columns: 1fr; } #view-food .food-empty { align-items: flex-start; flex-direction: column; } }
+
+        /* â”€â”€â”€ System Details â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .details-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -411,7 +495,7 @@
 
         .detail-value.mono { font-family: "Consolas", "Courier New", monospace; font-size: .7rem; }
 
-        /* ─── History Table ────────────────────────────────── */
+        /* â”€â”€â”€ History Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .history-table-wrap {
             overflow-x: auto;
             border-radius: var(--radius-sm);
@@ -465,7 +549,7 @@
         .door-closed{ color: var(--text-muted); }
         .na-text    { color: var(--text-dim); }
 
-        /* ─── Buttons ──────────────────────────────────────── */
+        /* â”€â”€â”€ Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .btn {
             display: inline-flex;
             align-items: center;
@@ -500,7 +584,7 @@
 
         .btn-sm { padding: 5px 10px; font-size: .74rem; }
 
-        /* ─── Dialogs ──────────────────────────────────────── */
+        /* â”€â”€â”€ Dialogs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         dialog {
             border: 0;
             border-radius: 14px;
@@ -556,7 +640,7 @@
             box-shadow: 0 0 0 2px rgba(23,107,82,.15);
         }
 
-        /* ─── Inline message ────────────────────────────────── */
+        /* â”€â”€â”€ Inline message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         #data-message {
             display: none;
             padding: 12px 16px;
@@ -570,7 +654,7 @@
         #data-message.normal  { background: var(--green-light); color: var(--green); }
         #data-message.error   { background: var(--red-bg);    color: var(--red); }
 
-        /* ─── Responsive ───────────────────────────────────── */
+        /* â”€â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         @media (max-width: 900px) {
             .sensor-row { grid-template-columns: repeat(2, 1fr); }
             .details-grid { grid-template-columns: repeat(2, 1fr); }
@@ -592,179 +676,88 @@
             .sensor-row { grid-template-columns: 1fr; }
         }
     </style>
+    <link rel="stylesheet" href="/static/freshguard-ui.css">
 </head>
 <body>
 <div class="app">
-
-    <!-- Header -->
-    <header class="header">
-        <div class="brand">
-            <h1>FreshGuard</h1>
-            <p>Food &amp; Environment Monitoring</p>
-        </div>
-        <div class="status-chips" aria-live="polite">
-            <span id="connection-chip" class="chip chip-info">
-                <span class="chip-dot"></span>
-                <span id="connection-state">Loading…</span>
-            </span>
-            <span id="device-chip" class="chip chip-info" style="display:none">
-                <span class="chip-dot"></span>
-                <span id="device-state-text">Device</span>
-            </span>
-            <span class="updated" id="last-updated"></span>
-        </div>
-    </header>
-
-    <!-- Single system warning banner -->
-    <div id="system-banner" class="system-banner info" role="alert" aria-live="assertive">
-        <span id="system-banner-text"></span>
+  <header class="header">
+    <div class="brand"><h1>FreshGuard</h1><p>Food &amp; Environment Monitoring</p></div>
+  <nav class="top-nav" aria-label="Dashboard views">
+    <button class="top-nav-link active" type="button" data-view="overview">Overview</button>
+    <button class="top-nav-link" type="button" data-view="food">Food</button>
+    <button class="top-nav-link" type="button" data-view="history">History</button>
+  </nav>
+    <div class="status-chips" aria-live="polite">
+      <span id="connection-chip" class="chip chip-info"><span class="chip-dot"></span><span id="connection-state">Loading?</span></span>
+      <span id="device-chip" class="chip chip-info" style="display:none"><span class="chip-dot"></span><span id="device-state-text">Device</span></span>
+      <span class="updated" id="last-updated"></span>
     </div>
+  </header>
 
-    <!-- Inline message (for backend-level messages) -->
-    <div id="data-message" role="status"></div>
 
-    <!-- ── Primary Status ──────────────────────────────────── -->
-    <div class="status-card">
-        <div class="status-label">Current Food Status</div>
-        <div class="status-main">
-            <span id="freshness-status" class="status-value status-other">Waiting for device data</span>
-        </div>
-        <p id="freshness-reason" class="status-reason">No device reading available</p>
-        <div id="alert-strip" class="alert-strip" aria-live="polite"></div>
-    </div>
+  <div id="system-banner" class="system-banner info" role="alert" aria-live="assertive"><span id="system-banner-text"></span></div>
+  <div id="data-message" role="status"></div>
 
-    <!-- ── Environment Sensors ─────────────────────────────── -->
-    <section class="section">
-        <div class="section-title">Current Environment</div>
+  <main>
+    <section id="view-overview" class="dashboard-view active-view" aria-labelledby="overview-title">
+      <div class="view-heading"><div><p class="eyebrow">Live monitor</p><h2 id="overview-title">Overview</h2></div><span class="view-caption">FG-ESP32-01</span></div>
+      <div class="overview-grid">
+        <section class="status-card compact-panel" aria-labelledby="status-title">
+          <div class="status-label" id="status-title">Current Food Status</div>
+          <div class="status-main"><span id="freshness-status" class="status-value status-other">Waiting for device data</span></div>
+          <p id="freshness-reason" class="status-reason">No device reading available</p>
+          <div id="alert-strip" class="alert-strip" aria-live="polite"></div>
+        </section>
+        <section class="compact-panel current-food-panel" aria-labelledby="current-food-title">
+          <div class="panel-heading"><div><p class="eyebrow">Linked to latest reading</p><h2 id="current-food-title">Current food</h2></div><button class="btn btn-secondary btn-sm" id="scan-food-qr" type="button">Scan QR</button></div>
+          <div id="overview-food-summary" class="overview-food-summary"><strong id="overview-food-name">No food linked</strong><span id="overview-food-meta">Scan a food QR to add details</span></div>
+        </section>
+      </div>
+
+      <section class="metrics-panel" aria-labelledby="environment-title">
+        <div class="panel-heading"><div><p class="eyebrow">Device telemetry</p><h2 id="environment-title">Current environment</h2></div></div>
         <div class="sensor-row">
-            <div class="sensor-card">
-                <div class="sensor-icon">🌡</div>
-                <div class="sensor-label">Temperature</div>
-                <div class="sensor-value" id="temperature">—</div>
-            </div>
-            <div class="sensor-card">
-                <div class="sensor-icon">💧</div>
-                <div class="sensor-label">Humidity</div>
-                <div class="sensor-value" id="humidity">—</div>
-            </div>
-            <div class="sensor-card">
-                <div class="sensor-icon">🌬</div>
-                <div class="sensor-label">Air Quality</div>
-                <div class="sensor-value" id="gas">—</div>
-            </div>
-            <div class="sensor-card">
-                <div class="sensor-icon">🚪</div>
-                <div class="sensor-label">Door</div>
-                <div class="sensor-value" id="door">—</div>
-            </div>
+          <div class="sensor-card"><div class="sensor-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.7V5a2 2 0 0 0-4 0v9.7a4 4 0 1 0 4 0ZM12 3v11"/></svg></div><div class="sensor-label">Temperature</div><div class="sensor-value" id="temperature">?</div></div>
+          <div class="sensor-card"><div class="sensor-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s6 6.2 6 11a6 6 0 0 1-12 0c0-4.8 6-11 6-11Z"/></svg></div><div class="sensor-label">Humidity</div><div class="sensor-value" id="humidity">?</div></div>
+          <div class="sensor-card"><div class="sensor-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m3 0h2m3 0h2m3 0h2M5 7h2m3 0h2m3 0h2m3 0h2M5 17h2m3 0h2m3 0h2m3 0h2"/></svg></div><div class="sensor-label">Gas Sensor</div><div class="sensor-value" id="gas">?</div></div>
+          <div class="sensor-card"><div class="sensor-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h10v16H5zM15 12h5M18 10l2 2-2 2"/></svg></div><div class="sensor-label">Door</div><div class="sensor-value" id="door">?</div></div>
         </div>
+      </section>
+
+      <section class="recent-panel" aria-labelledby="recent-title">
+        <div class="panel-heading"><div><p class="eyebrow">Latest device events</p><h2 id="recent-title">Recent readings</h2></div><button class="btn btn-secondary btn-sm" id="view-all-history" type="button">View all history</button></div>
+        <div class="history-table-wrap compact-history"><table><thead><tr><th>Time</th><th>Temp</th><th>Humidity</th><th>Gas</th><th>Door</th><th>Status</th></tr></thead><tbody id="overview-history"></tbody></table></div>
+      </section>
+
+      <details class="system-details"><summary>System information</summary><div class="details-grid"><div class="detail-item"><span class="detail-label">Device</span><span class="detail-value" id="source-device">?</span></div><div class="detail-item"><span class="detail-label">Last Reading</span><span class="detail-value" id="source-age">?</span></div><div class="detail-item"><span class="detail-label">Captured</span><span class="detail-value" id="source-captured">?</span></div><div class="detail-item"><span class="detail-label">Reading ID</span><span class="detail-value mono" id="source-reading-id">?</span></div></div></details>
+      <p style="display:none" id="reading-device">?</p><p style="display:none" id="storage-inserted">?</p><p style="display:none" id="storage-expiry">?</p>
     </section>
 
-    <!-- ── Food ───────────────────────────────────────────── -->
-    <section class="section" id="food-section">
-        <div class="food-header">
-            <div class="section-title" style="margin-bottom:0">Food</div>
-            <button class="btn btn-secondary btn-sm" id="scan-food-qr" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="4" height="4"/></svg>
-                Scan Food QR
-            </button>
-        </div>
-
-        <!-- No-food empty state -->
-        <div id="food-empty-state" class="food-empty">
-            <p>No food linked to this reading.</p>
-            <button class="btn btn-primary" id="scan-food-qr-empty" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="4" height="4"/></svg>
-                Scan Food QR
-            </button>
-        </div>
-
-        <!-- Linked food details -->
-        <div id="food-details" style="display:none">
-            <div class="food-summary">
-                <span class="food-name" id="food-name">—</span>
-                <span class="food-cat" id="food-category">—</span>
-            </div>
-            <div class="food-grid">
-                <div class="food-field"><span class="food-field-label">Quantity</span><span class="food-field-value na" id="food-quantity">—</span></div>
-                <div class="food-field"><span class="food-field-label">Storage Location</span><span class="food-field-value na" id="food-location">—</span></div>
-                <div class="food-field"><span class="food-field-label">Stored At</span><span class="food-field-value na" id="food-inserted">—</span></div>
-                <div class="food-field"><span class="food-field-label">Manufacture Date</span><span class="food-field-value na" id="food-manufacture">—</span></div>
-                <div class="food-field"><span class="food-field-label">Expiry Date</span><span class="food-field-value na" id="food-expiry">—</span></div>
-                <div class="food-field"><span class="food-field-label">Food ID</span><span class="food-field-value mono na" id="food-id">—</span></div>
-            </div>
-        </div>
-
-        <!-- Hidden for JS backward compat -->
+    <section id="view-food" class="dashboard-view" aria-labelledby="food-view-title" hidden>
+      <div class="view-heading"><div><p class="eyebrow">Food registry</p><h2 id="food-view-title">Food</h2></div><button class="btn btn-primary" id="scan-food-qr-empty" type="button">Scan Food QR</button></div>
+      <section class="compact-panel food-panel" id="food-section">
+        <div class="panel-heading"><div><p class="eyebrow">Latest reading</p><h2>Current food</h2></div></div>
+        <div id="food-empty-state" class="food-empty"><p>No food linked to the latest reading.</p><button class="btn btn-primary" id="scan-food-qr-food" type="button">Scan Food QR</button></div>
+        <div id="food-details" style="display:none"><div class="food-summary"><span class="food-name" id="food-name">?</span><span class="food-cat" id="food-category">?</span></div><div class="food-grid"><div class="food-field"><span class="food-field-label">Quantity</span><span class="food-field-value na" id="food-quantity">?</span></div><div class="food-field"><span class="food-field-label">Storage Location</span><span class="food-field-value na" id="food-location">?</span></div><div class="food-field"><span class="food-field-label">Stored At</span><span class="food-field-value na" id="food-inserted">?</span></div><div class="food-field"><span class="food-field-label">Manufacture Date</span><span class="food-field-value na" id="food-manufacture">?</span></div><div class="food-field"><span class="food-field-label">Expiry Date</span><span class="food-field-value na" id="food-expiry">?</span></div><div class="food-field"><span class="food-field-label">Food ID</span><span class="food-field-value mono na" id="food-id">?</span></div></div></div>
         <p id="food-state" style="display:none"></p>
-    </section>
-
-    <!-- ── Foods in Fridge ────────────────────────────────── -->
-    <section class="section">
-        <div class="section-title">Foods in Fridge</div>
-        <div class="fridge-summary">
-            <span class="fridge-count" id="fridge-count">0</span>
-            <span>items</span>
-            <span class="fridge-overall" id="fridge-overall">—</span>
-        </div>
-        <div id="active-foods" class="active-foods-list"><p class="na-text" id="active-foods-placeholder">Loading…</p></div>
-        <p id="active-foods-summary" style="display:none"></p>
-    </section>
-
-    <!-- ── System Details ──────────────────────────────────── -->
-    <section class="section">
-        <div class="section-title">System Details</div>
-        <div class="details-grid">
-            <div class="detail-item">
-                <span class="detail-label">Device</span>
-                <span class="detail-value" id="source-device">—</span>
+      </section>
+      <section class="compact-panel foods-panel"><div class="panel-heading"><div><p class="eyebrow">Active registry</p><h2>Foods in fridge</h2></div><span class="fridge-summary"><strong class="fridge-count" id="fridge-count">0</strong><span>items</span><span class="fridge-overall" id="fridge-overall">?</span></span></div><div class="fridge-layout">
+          <div class="fridge-illustration" aria-label="Illustration of the monitored refrigerator">
+            <div class="fridge-shell" aria-hidden="true">
+              <div class="fridge-door"><span class="fridge-shelf one"></span><span class="fridge-shelf two"></span><span class="fridge-food-dot a"></span><span class="fridge-food-dot b"></span><span class="fridge-food-dot c"></span></div>
+              <div class="fridge-freezer"><span class="fridge-food-dot d"></span></div>
             </div>
-            <div class="detail-item">
-                <span class="detail-label">Last Reading</span>
-                <span class="detail-value" id="source-age">—</span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Captured</span>
-                <span class="detail-value" id="source-captured">—</span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Reading ID</span>
-                <span class="detail-value mono" id="source-reading-id">—</span>
-            </div>
-        </div>
-        <!-- Hidden for JS backward compat -->
-        <p style="display:none" id="reading-device">—</p>
-        <p style="display:none" id="storage-inserted">—</p>
-        <p style="display:none" id="storage-expiry">—</p>
+            <span class="fridge-label">FreshGuard fridge</span>
+          </div>
+          <div id="active-foods" class="active-foods-list"><p class="na-text" id="active-foods-placeholder">Loading?</p></div>
+        </div><p id="active-foods-summary" style="display:none"></p></section>
     </section>
 
-    <!-- ── Reading History ─────────────────────────────────── -->
-    <section class="section">
-        <div class="section-title">Reading History</div>
-        <div class="history-table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Food</th>
-                        <th>Temp</th>
-                        <th>Humidity</th>
-                        <th>Gas</th>
-                        <th>Door</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="reading-history"></tbody>
-            </table>
-        </div>
+    <section id="view-history" class="dashboard-view" aria-labelledby="history-view-title" hidden>
+      <div class="view-heading"><div><p class="eyebrow">Device telemetry</p><h2 id="history-view-title">Reading history</h2></div><span class="view-caption">Last 20 readings</span></div>
+      <section class="compact-panel history-panel"><div class="section-heading-row"><div><p class="eyebrow">Historical context</p><h2>All readings</h2></div><label class="history-filter">Filter<select id="history-status-filter" aria-label="Filter reading history by freshness status"><option value="all">All statuses</option><option value="Fresh / Normal">Fresh / Normal</option><option value="Use Soon">Use Soon</option><option value="Check Food">Check Food</option></select></label></div><div class="trend-slot" aria-label="Future trend chart area">Trend view can be added here without changing the reading table.</div><div class="history-table-wrap"><table><thead><tr><th>Time</th><th>Food</th><th>Temp</th><th>Humidity</th><th>Gas</th><th>Door</th><th>Status</th></tr></thead><tbody id="reading-history"></tbody></table></div></section>
     </section>
-
-    <!-- Hidden for JS backward compat -->
-    <section id="alert-panel" style="display:none" aria-live="polite">
-        <p id="alert-heading"></p>
-        <p id="alert-reason"></p>
-    </section>
-
+  </main>
 </div><!-- .app -->
 
 <!-- QR Scanner Dialog -->
@@ -772,7 +765,7 @@
     <h2 id="qr-dialog-title" style="margin-bottom:14px;font-size:1.05rem">Scan Food QR</h2>
     <video id="qr-video" class="scanner-preview" playsinline muted></video>
     <canvas id="qr-canvas" style="display:none"></canvas>
-    <p id="qr-status" class="scanner-status">Preparing scanner…</p>
+    <p id="qr-status" class="scanner-status">Preparing scanner...</p>
     <div id="qr-result" class="qr-result" hidden>
         <p><strong>QR Code:</strong> <span id="qr-code-value"></span></p>
         <p><strong>Category:</strong> <span id="qr-category-value"></span></p>
@@ -803,17 +796,18 @@
 <script>
 (function() {
     "use strict";
-    /* ── Config ───────────────────────────────────────────── */
+    /* â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     var API_BASE_URL = "/api/v1";
     var DASHBOARD_DEVICE_ID = "FG-ESP32-01";
     var DASHBOARD_REFRESH_MS = 5000;
     var STALE_AFTER_MS = 90000;
-    var UNAVAILABLE = "—";
+    var historyReadings = [];
+    var UNAVAILABLE = "N/A";
 
     var refreshInProgress = false;
     var hasLoadedData = false;
 
-    /* ── Helpers ───────────────────────────────────────────── */
+    /* â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function byId(id) { return document.getElementById(id); }
 
     function fmt(val, suf) {
@@ -837,6 +831,7 @@
         if (status === "Fresh / Normal") return "status-fresh";
         if (status === "Use Soon")        return "status-soon";
         if (status === "Check Food")      return "status-check";
+        if (status === "DEVICE STALE")    return "status-stale";
         return "status-other";
     }
 
@@ -848,7 +843,7 @@
         return Math.floor(m / 60) + "h ago";
     }
 
-    /* ── System Banner ────────────────────────────────────── */
+    /* â”€â”€ System Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     var _currentBanner = null; // { type, text }
 
     function showBanner(type, text) {
@@ -864,7 +859,7 @@
         _currentBanner = null;
     }
 
-    /* ── Message ──────────────────────────────────────────── */
+    /* â”€â”€ Message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function showMessage(msg, isError) {
         var el = byId("data-message");
         el.textContent = msg;
@@ -873,16 +868,17 @@
 
     function hideMessage() { byId("data-message").className = "data-message"; }
 
-    /* ── Chip helpers ────────────────────────────────────── */
+    /* â”€â”€ Chip helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function setChip(elId, cssClass, label) {
         var el = byId(elId);
         el.className = "chip " + cssClass;
         el.querySelector("span:last-child").textContent = label;
     }
 
-    /* ── Sensor values ───────────────────────────────────── */
+    /* â”€â”€ Sensor values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function setSensors(reading) {
-        byId("temperature").textContent = fmt(reading.temperature_c, " °C");
+        ["temperature", "humidity", "gas", "door"].forEach(function(id) { byId(id).classList.remove("sensor-unavailable"); });
+        byId("temperature").textContent = fmt(reading.temperature_c, " \u00b0C");
         byId("humidity").textContent    = fmt(reading.humidity_pct, " %");
         byId("gas").textContent         = fmt(reading.gas_raw);
         var doorEl = byId("door");
@@ -896,14 +892,15 @@
     }
 
     function setSensorsNA() {
-        byId("temperature").textContent = UNAVAILABLE;
-        byId("humidity").textContent    = UNAVAILABLE;
-        byId("gas").textContent         = UNAVAILABLE;
-        byId("door").textContent        = UNAVAILABLE;
+        ["temperature", "humidity", "gas", "door"].forEach(function(id) { byId(id).classList.add("sensor-unavailable"); byId(id).textContent = "Unavailable"; });
     }
 
-    /* ── Food fields ─────────────────────────────────────── */
+    /* â”€â”€ Food fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function setFoodFields(food) {
+        var overviewName = byId("overview-food-name");
+        var overviewMeta = byId("overview-food-meta");
+        if (overviewName) overviewName.textContent = food && food.food_name ? food.food_name : "No food linked";
+        if (overviewMeta) overviewMeta.textContent = food && food.category ? food.category + (food.expiry_date ? " / Expires " + food.expiry_date : "") : "Scan a food QR to add details";
         var fields = [
             ["food-name",        food && food.food_name],
             ["food-category",   food && food.category],
@@ -937,7 +934,7 @@
         byId("food-details").style.display = "none";
     }
 
-    /* ── System Details ──────────────────────────────────── */
+    /* â”€â”€ System Details â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function setSystemDetails(reading) {
         byId("source-device").textContent     = fmtFood(reading.device_id) || UNAVAILABLE;
         byId("reading-device").textContent     = fmtFood(reading.device_id) || UNAVAILABLE;
@@ -950,17 +947,17 @@
     }
 
     function setSystemDetailsNA() {
-        byId("source-device").textContent    = UNAVAILABLE;
+        byId("source-device").textContent    = DASHBOARD_DEVICE_ID;
         byId("reading-device").textContent   = DASHBOARD_DEVICE_ID;
         byId("source-reading-id").textContent = UNAVAILABLE;
         byId("source-captured").textContent  = UNAVAILABLE;
-        byId("source-age").textContent        = UNAVAILABLE;
+        byId("source-age").textContent        = "Never";
     }
 
-    /* ── Alert strip ─────────────────────────────────────── */
+    /* â”€â”€ Alert strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function setAlertStrip(status, reason) {
         var strip = byId("alert-strip");
-        if (!status || status === "Fresh / Normal") {
+        if (!status || status === "Fresh / Normal" || status === "DEVICE STALE" || status === "Data Unavailable") {
             strip.className = "alert-strip"; strip.textContent = "";
             return;
         }
@@ -969,7 +966,7 @@
         strip.textContent = heading + (reason ? ": " + reason : "");
     }
 
-    /* ── Freshness rendering ─────────────────────────────── */
+    /* â”€â”€ Freshness rendering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function renderFreshness(status, reason) {
         var el = byId("freshness-status");
         el.textContent = fmt(status) || "Data Unavailable";
@@ -978,39 +975,46 @@
         setAlertStrip(status, reason);
     }
 
-    /* ── History ─────────────────────────────────────────── */
+    /* â”€â”€ History â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function renderHistory(readings) {
+        historyReadings = Array.isArray(readings) ? readings.slice() : [];
+        renderOverviewHistory(historyReadings);
         var body = byId("reading-history");
         body.innerHTML = "";
-        if (!Array.isArray(readings) || readings.length === 0) {
+        var filter = byId("history-status-filter");
+        var selected = filter ? filter.value : "all";
+        var visible = historyReadings.filter(function(rd) {
+            return selected === "all" || (rd.freshness && rd.freshness.status === selected);
+        });
+        if (visible.length === 0) {
             var r = body.insertRow();
-            var c = r.insertCell(); c.colSpan = 7; c.textContent = "No readings available";
+            var c = r.insertCell(); c.colSpan = 7; c.textContent = historyReadings.length ? "No readings match this filter" : "No readings available";
             c.style.textAlign = "center"; c.style.color = "var(--text-dim)";
             return;
         }
-        readings.forEach(function(rd) {
+        visible.forEach(function(rd) {
             var row = body.insertRow();
             var ts = rd.timestamp ? new Date(rd.timestamp) : null;
             var time = (ts && !isNaN(ts.getTime())) ? ts.toLocaleString("vi-VN") : UNAVAILABLE;
-            var cell = function(v) { var c = document.createElement("td"); c.textContent = v === null || v === undefined || v === "" ? "—" : v; return c; };
+            var cell = function(v) { var c = document.createElement("td"); c.textContent = v === null || v === undefined || v === "" ? UNAVAILABLE : v; return c; };
             row.appendChild(cell(time));
-            row.appendChild(cell(rd.food_id || "—"));
+            row.appendChild(cell(rd.food_id || UNAVAILABLE));
             var tCell = document.createElement("td");
-            tCell.textContent = rd.temperature_c != null ? rd.temperature_c + " °C" : "—";
+            tCell.textContent = rd.temperature_c != null ? rd.temperature_c + " \u00b0C" : UNAVAILABLE;
             if (rd.temperature_c == null) tCell.className = "na-text";
             row.appendChild(tCell);
             var hCell = document.createElement("td");
-            hCell.textContent = rd.humidity_pct != null ? rd.humidity_pct + " %" : "—";
+            hCell.textContent = rd.humidity_pct != null ? rd.humidity_pct + " %" : UNAVAILABLE;
             if (rd.humidity_pct == null) hCell.className = "na-text";
             row.appendChild(hCell);
             var gCell = document.createElement("td");
-            gCell.textContent = rd.gas_raw != null ? rd.gas_raw : "—";
+            gCell.textContent = rd.gas_raw != null ? rd.gas_raw : UNAVAILABLE;
             if (rd.gas_raw == null) gCell.className = "na-text";
             row.appendChild(gCell);
             var dCell = document.createElement("td");
             if (rd.door_open === true)      dCell.innerHTML = '<span class="door-open">OPEN</span>';
             else if (rd.door_open === false)dCell.innerHTML = '<span class="door-closed">CLOSED</span>';
-            else                            dCell.textContent = "—";
+            else                            dCell.textContent = "â€”";
             row.appendChild(dCell);
             var fCell = document.createElement("td");
             if (rd.freshness && rd.freshness.status) {
@@ -1019,28 +1023,62 @@
                 sp.textContent = rd.freshness.status;
                 fCell.appendChild(sp);
             } else {
-                fCell.textContent = "—";
+                fCell.textContent = "â€”";
                 fCell.className = "na-text";
             }
             row.appendChild(fCell);
         });
     }
 
-    /* ── Foods in Fridge ─────────────────────────────────── */
+    function renderOverviewHistory(readings) {
+        var body = byId("overview-history");
+        if (!body) return;
+        body.innerHTML = "";
+        var rows = Array.isArray(readings) ? readings.slice(0, 5) : [];
+        if (!rows.length) {
+            var empty = body.insertRow().insertCell();
+            empty.colSpan = 6; empty.textContent = "No recent readings"; empty.className = "na-text"; empty.style.textAlign = "center";
+            return;
+        }
+        rows.forEach(function(rd) {
+            var row = body.insertRow();
+            var ts = rd.timestamp ? new Date(rd.timestamp) : null;
+            var time = ts && !isNaN(ts.getTime()) ? ts.toLocaleString("vi-VN") : UNAVAILABLE;
+            [time, rd.temperature_c != null ? rd.temperature_c + " \u00b0C" : UNAVAILABLE,
+             rd.humidity_pct != null ? rd.humidity_pct + " %" : UNAVAILABLE,
+             rd.gas_raw != null ? rd.gas_raw : UNAVAILABLE].forEach(function(value) {
+                var cell = row.insertCell(); cell.textContent = value;
+            });
+            var door = row.insertCell();
+            door.textContent = rd.door_open === true ? "OPEN" : rd.door_open === false ? "CLOSED" : UNAVAILABLE;
+            door.className = rd.door_open === true ? "door-open" : "door-closed";
+            var status = row.insertCell();
+            if (rd.freshness && rd.freshness.status) {
+                var badge = document.createElement("span"); badge.className = "badge " + badgeClass(rd.freshness.status); badge.textContent = rd.freshness.status; status.appendChild(badge);
+            } else { status.textContent = UNAVAILABLE; status.className = "na-text"; }
+        });
+    }
+
+    /* â”€â”€ Foods in Fridge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    var activeFoodsLoaded = false;
+
     function renderActiveFoods(foods) {
+        activeFoodsLoaded = true;
         var root = byId("active-foods");
+        var illustration = document.querySelector(".fridge-illustration");
         root.innerHTML = "";
+        root.classList.toggle("has-foods", foods.length > 0);
+        if (illustration) illustration.style.display = foods.length ? "none" : "flex";
         var count = byId("fridge-count");
         var overall = byId("fridge-overall");
-        var placeholder = byId("active-foods-placeholder");
-
         if (!foods.length) {
             count.textContent = "0";
             overall.textContent = "No foods registered";
             overall.className = "fridge-overall";
-            placeholder.textContent = "No foods in fridge.";
-            placeholder.className = "na-text";
-            root.appendChild(placeholder);
+            var empty = document.createElement("p");
+            empty.className = "na-text";
+            empty.textContent = "No registered foods yet.";
+            root.appendChild(empty);
             return;
         }
 
@@ -1052,26 +1090,29 @@
         }, null);
         var waiting = foods.length - known.length;
         var overallText = worst || "Waiting for Reading";
-        overall.textContent = overallText + (waiting ? " · " + waiting + " waiting" : "");
+        overall.textContent = overallText + (waiting ? " ? " + waiting + " waiting" : "");
         overall.className = "fridge-overall " + (worst === "Use Soon" ? "soon" : worst === "Check Food" ? "check" : "");
-        placeholder.style.display = "none";
 
         foods.forEach(function(food) {
             var card = document.createElement("div");
             card.className = "active-food";
+            var main = document.createElement("div");
+            main.className = "active-food-main";
+            var icon = document.createElement("span");
+            icon.className = "food-card-icon";
+            icon.textContent = food.category === "MEAT" ? "M" : food.category === "DAIRY" ? "D" : food.category === "FRUIT" ? "F" : food.category === "VEGETABLE" ? "V" : "C";
+            icon.setAttribute("aria-hidden", "true");
             var info = document.createElement("div");
             info.className = "active-food-info";
             var h3 = document.createElement("h3");
-            h3.textContent = food.food_name || "—";
+            h3.textContent = food.food_name || "Food name unavailable";
             var p = document.createElement("p");
-            p.textContent = (food.category || "—") + " · " + (food.freshness_status || "Waiting");
-            var readingAt = food.reading_timestamp ? new Date(food.reading_timestamp) : null;
-            var deviceStale = readingAt && !isNaN(readingAt.getTime()) && (Date.now() - readingAt.getTime()) > STALE_AFTER_MS;
+            p.textContent = (food.category || "Category unavailable") + " / " + (food.freshness_status || "Waiting for Reading");
+            p.className = "food-status " + (food.freshness_status === "Use Soon" ? "soon" : food.freshness_status === "Fresh / Normal" ? "fresh" : food.freshness_status === "Check Food" ? "check" : "");
             var p2 = document.createElement("p");
-            var evalAt = food.evaluated_at ? new Date(food.evaluated_at) : null;
-            var evalStr = (evalAt && !isNaN(evalAt.getTime())) ? evalAt.toLocaleString("vi-VN") : "—";
-            p2.textContent = "Last: " + evalStr + (deviceStale ? " · Stale" : "");
+            p2.textContent = food.expiry_date ? "Expires " + food.expiry_date : "Expiry date unavailable";
             info.appendChild(h3); info.appendChild(p); info.appendChild(p2);
+            main.appendChild(icon); main.appendChild(info);
             var actions = document.createElement("div");
             actions.className = "active-food-actions";
             var hist = document.createElement("button");
@@ -1085,16 +1126,29 @@
             rem.textContent = "Remove";
             rem.addEventListener("click", function() { deactivateFood(food.food_id); });
             actions.appendChild(hist); actions.appendChild(rem);
-            card.appendChild(info); card.appendChild(actions);
+            card.appendChild(main); card.appendChild(actions);
             root.appendChild(card);
         });
-
-        // Also update hidden summary (back compat)
-        var summary = byId("active-foods-summary");
-        summary.textContent = "Foods in Fridge: " + foods.length + " · Overall: " + overallText + (waiting ? " · " + waiting + " food waiting for reading" : "");
     }
 
-    /* ── Render reading ───────────────────────────────────── */
+    function renderActiveFoodsUnavailable() {
+        if (activeFoodsLoaded) return;
+        var root = byId("active-foods");
+        root.innerHTML = "";
+        root.classList.remove("has-foods");
+        var illustration = document.querySelector(".fridge-illustration");
+        if (illustration) illustration.style.display = "none";
+        byId("fridge-count").textContent = "?";
+        var overall = byId("fridge-overall");
+        overall.textContent = "Food data unavailable";
+        overall.className = "fridge-overall";
+        var message = document.createElement("p");
+        message.className = "na-text";
+        message.textContent = "Unable to load registered foods. Try refreshing.";
+        root.appendChild(message);
+    }
+
+    /* â”€â”€ Render reading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function renderReading(reading) {
         var captured = reading.timestamp ? new Date(reading.timestamp) : null;
         var ageMs = captured && !isNaN(captured.getTime()) ? Math.max(0, Date.now() - captured.getTime()) : null;
@@ -1104,13 +1158,13 @@
 
         if (ageMs === null || ageMs > STALE_AFTER_MS) {
             // Device stale
-            showBanner("warn", "⚠ Device data is stale — Last reading was " + (ageMs !== null ? ageLabel(ageMs) : "unknown") + " ago");
+            showBanner("warn", "Warning: System data is currently stale. Last successful reading was " + (ageMs !== null ? ageLabel(ageMs) : "unknown") + ".");
             setSensorsNA();
-            renderFreshness(null, "Latest device reading is stale. Live values temporarily unavailable.");
-            setChip("connection-chip", "chip-warn", "Backend Connected");
+            renderFreshness("DEVICE STALE", "No recent freshness evaluation / Latest device reading is stale.");
+            setChip("connection-chip", "chip-ok", "Backend Connected");
             byId("device-chip").style.display = "inline-flex";
             setChip("device-chip", "chip-warn", "Device Stale");
-            byId("last-updated").textContent = ageMs !== null ? ageLabel(ageMs) + " ago" : "";
+            byId("last-updated").textContent = ageMs !== null ? ageLabel(ageMs) : "";
             return;
         }
 
@@ -1126,12 +1180,12 @@
         renderFreshness(status, reason);
     }
 
-    /* ── No data state ───────────────────────────────────── */
+    /* â”€â”€ No data state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function renderNoData() {
         hideBanner();
         setSensorsNA();
         setSystemDetailsNA();
-        renderFreshness("Data Unavailable", "Waiting for device data");
+        renderFreshness("Waiting for device data", "No reading has been captured by this device yet.");
         setChip("connection-chip", "chip-info", "Backend Connected");
         byId("device-chip").style.display = "inline-flex";
         setChip("device-chip", "chip-info", "Waiting");
@@ -1142,7 +1196,7 @@
         renderHistory([]);
     }
 
-    /* ── Error state ──────────────────────────────────────── */
+    /* â”€â”€ Error state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function renderLoadError(msg) {
         hideBanner();
         setSensorsNA();
@@ -1156,7 +1210,7 @@
         renderHistory([]);
     }
 
-    /* ── Food lookup ──────────────────────────────────────── */
+    /* â”€â”€ Food lookup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function loadFood(foodId) {
         if (!foodId) {
             byId("food-state").textContent = "No food linked";
@@ -1164,7 +1218,7 @@
             setFoodFields(null);
             return;
         }
-        byId("food-state").textContent = "Loading food information…";
+        byId("food-state").textContent = "Loading food information...";
         fetch(API_BASE_URL + "/foods/" + encodeURIComponent(foodId))
             .then(function(r) { return r.json(); })
             .then(function(result) {
@@ -1180,7 +1234,7 @@
             });
     }
 
-    /* ── History ──────────────────────────────────────────── */
+    /* â”€â”€ History â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function loadHistory() {
         fetch(API_BASE_URL + "/readings?device_id=" + encodeURIComponent(DASHBOARD_DEVICE_ID) + "&limit=20")
             .then(function(r) { return r.json(); })
@@ -1193,16 +1247,27 @@
             });
     }
 
-    /* ── Foods in Fridge ───────────────────────────────────── */
+    /* â”€â”€ Foods in Fridge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function loadActiveFoods() {
-        fetch(API_BASE_URL + "/foods/active/freshness")
+        // Active registry membership is authoritative; freshness is optional enrichment.
+        fetch(API_BASE_URL + "/foods/active", { cache: "no-store" })
             .then(function(r) { return r.json(); })
             .then(function(result) {
                 if (!result.success) throw new Error();
                 renderActiveFoods(result.data || []);
+                return fetch(API_BASE_URL + "/foods/active/freshness", { cache: "no-store" })
+                    .then(function(r) { return r.json(); })
+                    .then(function(enriched) {
+                        if (!enriched.success) throw new Error();
+                        renderActiveFoods(enriched.data || []);
+                    })
+                    .catch(function() {
+                        // Keep the active registry visible if snapshots are unavailable.
+                    });
             })
             .catch(function() {
-                renderActiveFoods([]);
+                renderActiveFoodsUnavailable();
+                window.setTimeout(loadActiveFoods, 2000);
             });
     }
 
@@ -1220,10 +1285,10 @@
     function showFoodHistory(foodId, foodName) {
         var dialog = byId("food-history-dialog");
         var body = byId("food-history-body");
-        byId("food-history-title").textContent = foodName + " — History";
+        byId("food-history-title").textContent = foodName + " - History";
         body.innerHTML = "";
         var loading = body.insertRow().insertCell();
-        loading.colSpan = 3; loading.textContent = "Loading…";
+        loading.colSpan = 3; loading.textContent = "Loading...";
         dialog.showModal();
         fetch(API_BASE_URL + "/foods/" + encodeURIComponent(foodId) + "/freshness-history?limit=20")
             .then(function(r) { return r.json(); })
@@ -1235,13 +1300,13 @@
                 }
                 result.data.forEach(function(s) {
                     var row = body.insertRow();
-                    row.insertCell().textContent = s.reading_timestamp || s.evaluated_at || "—";
+                    row.insertCell().textContent = s.reading_timestamp || s.evaluated_at || "â€”";
                     var statusCell = row.insertCell();
                     var sp = document.createElement("span");
                     sp.className = "badge " + badgeClass(s.freshness_status);
-                    sp.textContent = s.freshness_status || "—";
+                    sp.textContent = s.freshness_status || "â€”";
                     statusCell.appendChild(sp);
-                    row.insertCell().textContent = s.freshness_reason || "—";
+                    row.insertCell().textContent = s.freshness_reason || "â€”";
                 });
             })
             .catch(function(err) {
@@ -1250,11 +1315,11 @@
             });
     }
 
-    /* ── Main poll ─────────────────────────────────────────── */
+    /* â”€â”€ Main poll â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function loadDashboard() {
         if (refreshInProgress) return;
         refreshInProgress = true;
-        byId("connection-state").textContent = hasLoadedData ? "Refreshing…" : "Loading…";
+        byId("connection-state").textContent = hasLoadedData ? "Refreshing..." : "Loading...";
 
         fetch(API_BASE_URL + "/readings/latest?device_id=" + encodeURIComponent(DASHBOARD_DEVICE_ID))
             .then(function(response) { return response.json().then(function(j) { return { ok: response.ok, status: response.status, body: j }; }); })
@@ -1280,7 +1345,7 @@
             .then(function() { refreshInProgress = false; });
     }
 
-    /* ── QR Scanner ───────────────────────────────────────── */
+    /* â”€â”€ QR Scanner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     var QR_CATEGORY_MAP = Object.freeze({
         "FG-MEAT": "MEAT", "FG-DAIRY": "DAIRY",
         "FG-VEGETABLE": "VEGETABLE", "FG-FRUIT": "FRUIT", "FG-COOKED": "COOKED_FOOD"
@@ -1359,7 +1424,7 @@
     function openQrScanner() {
         resetQrDialog();
         byId("qr-dialog").showModal();
-        setQrStatus("Requesting camera…");
+        setQrStatus("Requesting camera...");
         loadQrLibrary()
             .then(function() {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("Camera not supported");
@@ -1385,7 +1450,7 @@
         if (!qrCode || qrSubmitInProgress) return;
         qrSubmitInProgress = true;
         byId("create-food").disabled = true;
-        setQrStatus("Creating food…");
+        setQrStatus("Creating food...");
         var payload = {
             qr_code: qrCode,
             food_name: byId("food-name-input").value.trim(),
@@ -1408,7 +1473,7 @@
                 [["Food ID", food.food_id], ["Name", food.food_name], ["Category", food.category], ["Stored", food.inserted_at]]
                     .forEach(function(pair) {
                         var p = document.createElement("p");
-                        p.innerHTML = "<strong>" + pair[0] + ":</strong> " + (pair[1] || "—");
+                        p.innerHTML = "<strong>" + pair[0] + ":</strong> " + (pair[1] || "â€”");
                         success.appendChild(p);
                     });
                 success.hidden = false;
@@ -1424,7 +1489,7 @@
                         .then(function(r) { return r.json(); })
                         .then(function(a) {
                             if (!a.success) throw new Error(a.message);
-                            activate.textContent = "Added to Fridge ✓";
+                            activate.textContent = "Added to Fridge âœ“";
                             setQrStatus("Food is active in the fridge.");
                             loadActiveFoods();
                         })
@@ -1442,20 +1507,39 @@
             .then(function() { qrSubmitInProgress = false; });
     }
 
-    /* ── Event listeners ─────────────────────────────────── */
+    /* â”€â”€ Event listeners â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function wireUp(id, event, handler) {
         var el = byId(id); if (el) el.addEventListener(event, handler);
     }
 
+    function showView(name) {
+        ["overview", "food", "history"].forEach(function(view) {
+            var panel = byId("view-" + view);
+            var link = document.querySelector('.top-nav-link[data-view="' + view + '"]');
+            var active = view === name;
+            if (panel) { panel.hidden = !active; panel.classList.toggle("active-view", active); }
+            if (link) { link.classList.toggle("active", active); link.setAttribute("aria-current", active ? "page" : "false"); }
+        });
+        if (name === "food") loadActiveFoods();
+        if (name === "history" && historyReadings.length === 0) loadHistory();
+    }
+
+    document.querySelectorAll(".top-nav-link").forEach(function(link) {
+        link.addEventListener("click", function() { showView(link.getAttribute("data-view")); });
+    });
+
     wireUp("scan-food-qr",        "click", openQrScanner);
     wireUp("scan-food-qr-empty",  "click", openQrScanner);
+    wireUp("scan-food-qr-food",   "click", openQrScanner);
+    wireUp("view-all-history",    "click", function() { showView("history"); });
     wireUp("close-qr",            "click", function() { stopQrCamera(); byId("qr-dialog").close(); });
     wireUp("qr-dialog",           "cancel", stopQrCamera);
     wireUp("food-form",           "submit", createFoodFromQr);
     wireUp("close-food-history",  "click", function() { byId("food-history-dialog").close(); });
+    wireUp("history-status-filter", "change", function() { renderHistory(historyReadings); });
     window.addEventListener("beforeunload", stopQrCamera);
 
-    /* ── Init ─────────────────────────────────────────────── */
+    /* â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     loadDashboard();
     loadActiveFoods();
     setInterval(loadDashboard, DASHBOARD_REFRESH_MS);

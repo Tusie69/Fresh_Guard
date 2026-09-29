@@ -1,8 +1,8 @@
 # Freshness Decision Rule Matrix
 
-This document describes the rules implemented in `backend/app/services/freshness.py`. The engine is the source of truth for the thresholds and outcomes below. These prototype profiles are not general food-safety standards.
+This document records the verified behavior of the current backend. The implementation is the source of truth; these prototype profiles are not general food-safety standards.
 
-## Status and severity
+## Status, severity, and aggregation
 
 | Severity | Status |
 | ---: | --- |
@@ -10,97 +10,120 @@ This document describes the rules implemented in `backend/app/services/freshness
 | 1 | Use Soon |
 | 2 | Check Food |
 
-The engine maps severity to status through `severity_to_status()`. `evaluate_freshness()` evaluates all six rule groups and selects the maximum severity.
+`evaluate_freshness()` evaluates temperature, humidity, gas, door, storage duration, and expiry, then returns the maximum applicable severity. A warning in a reason string does not by itself raise the status to Use Soon. Reasons from applicable rules are joined with `; ` in rule order. If all rules are clear, the reason is `All sensor readings are available`.
 
-## Sensor validity
+## Persisted rules and configurability
 
-Numeric sensor inputs must be finite `int` or `float` values; booleans are not accepted as numeric values.
+The current database contains all 23 provider keys. The admin API exposes 17 editable rules and 6 locked rules.
 
-| Input | `None` behavior | Other invalid input behavior |
-| --- | --- | --- |
-| Temperature | Severity 2, `Temperature sensor fault.` | Severity 2, `Invalid temperature value.` |
-| Humidity | Severity 2, `Humidity sensor fault.` | Severity 2, `Invalid humidity value.` |
-| Gas | Severity 2, `Gas sensor fault.` | Severity 2, `Invalid gas reading.` |
-| Door state | Severity 2, `Door sensor fault.` | Severity 2, `Invalid door state.` unless it is exactly `True` or `False` |
+| Rule family | Current value(s) | Persistence | Admin |
+| --- | --- | --- | --- |
+| Temperature hot threshold | 5.0°C | FreshRule | Editable |
+| Temperature critical threshold | 12.0°C | FreshRule | Locked |
+| Temperature exposure limit | 7200 seconds | FreshRule | Editable |
+| Temperature continuity gap | 10 seconds | FreshRule | Locked |
+| Gas baseline samples / increase / consecutive count | 10 / 30% / 3 | FreshRule | Locked |
+| Humidity vegetable and fruit ranges | 80–95% | FreshRule | Editable |
+| Door open timeout | 30 seconds | FreshRule | Locked |
+| Storage profiles | see table below | FreshRule | Editable |
+| Expiry Use Soon window | 1 calendar day | FreshRule | Editable |
 
-For an open door, `open_duration_seconds` must be finite and non-negative. Otherwise the door rule returns severity 2 with `Invalid door open duration.` A closed door returns severity 0 without checking the duration value.
+## Sensor validity and faults
+
+Numeric values must be finite `int` or `float`; booleans are not numeric sensor values. `None`/unavailable or malformed sensor values produce `Check Food` for that rule (`Temperature sensor fault.`, `Humidity sensor fault.`, `Gas sensor fault.`, or the corresponding invalid-value reason). For an open door, duration must also be finite and non-negative. A closed door ignores its duration value. Fault events are transition-based in the event/state layer; each freshness evaluation still treats the current fault as severity 2. A malformed API request is rejected by request validation and is not an accepted null sensor reading.
 
 ## Temperature
 
-| Temperature | Severity | Status |
-| --- | ---: | --- |
-| `temperature_c <= 8` | 0 | Fresh / Normal |
-| `8 < temperature_c <= 12` | 1 | Use Soon |
-| `temperature_c > 12` | 2 | Check Food |
+Current persisted values are hot threshold 5.0°C, critical threshold 12.0°C, exposure limit 7200 seconds, and continuity gap 10 seconds.
 
-The boundaries are inclusive as shown: exactly 8 is Fresh / Normal; exactly 12 is Use Soon.
+| Condition | Severity/status | Reason behavior |
+| --- | --- | --- |
+| `T <= hot_threshold_c` | 0 / Fresh / Normal | No temperature warning |
+| `hot_threshold_c < T <= critical_threshold_c` and exposure `<=` limit | 0 / Fresh / Normal | Warning reason is returned |
+| `hot_threshold_c < T <= critical_threshold_c` and exposure `>` limit | 2 / Check Food | Exposure exceeded reason |
+| `T > critical_threshold_c` | 2 / Check Food | Critical temperature reason; exposure is irrelevant |
+
+Temperature exposure is accumulated by `temperature_exposure.py` only between valid hot readings whose timestamp gap is greater than 0 and at most the 10-second continuity gap. A gap over 10 seconds, an invalid reading, or a non-increasing timestamp breaks continuity. A reading at or below the hot threshold resets exposure to zero. The limit is exceeded strictly when `exposure_seconds > exposure_limit_seconds`.
+
+The 8°C distinction is **not a FreshRule** and is not configurable. It is a fixed reason-text branch in `_evaluate_temperature_rule()` in `backend/app/services/freshness.py`:
+
+```python
+if temperature_c > 8:
+    warning = "High Temperature Warning."
+elif temperature_c > rules.temperature_hot_threshold_c:
+    warning = "Temperature Warning."
+```
+
+It changes only the warning text, not severity. It is therefore a legacy presentation/reason threshold, not a separate Use Soon threshold.
+
+Verified boundaries:
+
+| Temperature | Status | Reason |
+| ---: | --- | --- |
+| 5.0°C | Fresh / Normal | none |
+| 5.1°C | Fresh / Normal | Temperature Warning. |
+| 8.0°C | Fresh / Normal | Temperature Warning. |
+| 8.1°C | Fresh / Normal | High Temperature Warning. |
+| 12.0°C | Fresh / Normal | High Temperature Warning. |
+| 12.1°C | Check Food | Critical Temperature: temperature is too high. |
 
 ## Humidity
 
-Humidity has an availability and finite-number validity check only. Any finite numeric value, including values outside the usual 0-100 percentage range, returns severity 0. A humidity quality threshold is **Not implemented yet**.
+For VEGETABLE and FRUIT, the configured inclusive target range is 80–95%. Values below the minimum return a `Low humidity warning.` and values above the maximum return a `High humidity warning.`; both remain severity 0 (`Fresh / Normal`) for the humidity rule. Other finite humidity values have no humidity reason. The overall reading can still become Use Soon or Check Food when another rule has greater severity.
 
 ## Gas
 
-Gas has an availability and finite-number validity check only. Any finite numeric `gas_raw` value returns severity 0. A calibrated gas or ppm threshold is **Not implemented yet**.
+Gas state is maintained per device/food context by `gas_anomaly.py`:
+
+1. The first 10 valid, non-negative finite readings learn the baseline.
+2. After baseline completion, a reading at least 30% above baseline increments the consecutive anomaly count.
+3. Three consecutive anomaly readings activate the anomaly.
+4. A valid reading below the anomaly threshold resets the count and clears the active anomaly; invalid/missing readings reset the consecutive count but do not prove that an active anomaly ended.
+
+While `gas_anomaly_active` is true, freshness returns severity 2 with `Gas level is significantly above baseline.`. Null, invalid, or negative gas data returns severity 2. A valid non-anomalous gas value contributes severity 0; no calibrated ppm limit is implemented.
 
 ## Door
 
-`DOOR_OPEN_TIMEOUT_SECONDS` is 30 seconds. In `evaluate_freshness()` the rule behaves as follows:
+The backend decision uses the persisted 30-second timeout:
 
-| Door state | Duration | Severity | Status |
-| --- | --- | ---: | --- |
-| Closed (`False`) | Any value; ignored by this rule | 0 | Fresh / Normal |
-| Open (`True`) | `0 <= duration < 30` seconds | 1 | Use Soon |
-| Open (`True`) | `duration >= 30` seconds | 2 | Check Food |
+| Door state | Duration | Severity/status | Reason |
+| --- | --- | --- | --- |
+| Closed | ignored | 0 / Fresh / Normal | none |
+| Open | `0 <= duration < 30` seconds | 0 / Fresh / Normal | `Door is open.` |
+| Open | `duration >= 30` seconds | 2 / Check Food | Maximum open duration exceeded |
 
-Thus, exactly 30 seconds is Check Food. The standalone compatibility helper `evaluate_door(door_open)` has no duration argument and reports an open door as Use Soon; `evaluate_freshness()` uses the timeout rule above.
+The MC-38 firmware priority reading at 30 seconds is a transport/capture trigger. It is separate from, and does not replace, this backend freshness decision.
 
 ## Food storage duration
 
-The storage-duration rule runs only when both `category` and `inserted_at` are provided. A missing category or insertion date skips this rule at severity 0. Unknown categories and invalid insertion dates return severity 2.
+This rule runs only when both category and `inserted_at` are present. Missing values skip the rule at severity 0; unknown categories, invalid dates, and future insertion dates return Check Food. Duration is whole calendar days: `(today - insertion_date).days`.
 
-The engine converts `inserted_at` to a calendar date, then calculates whole calendar days as `(today - insertion_date).days`; it does not calculate elapsed hours. A future insertion date is invalid and returns severity 2. For each category, the warning period is one day:
+| Category | Maximum | Warning window |
+| --- | ---: | ---: |
+| MEAT | 3 days | 1 day |
+| DAIRY | 14 days | 1 day |
+| VEGETABLE | 7 days | 1 day |
+| FRUIT | 14 days | 1 day |
+| COOKED_FOOD | 4 days | 1 day |
 
-| Duration in calendar days | Severity | Status |
-| --- | ---: | --- |
-| `< max_duration_days - warning_days` | 0 | Fresh / Normal |
-| `max_duration_days - warning_days` through `max_duration_days`, inclusive | 1 | Use Soon |
-| `> max_duration_days` | 2 | Check Food |
-
-Consequently, the exact maximum storage day is Use Soon; Check Food begins the next calendar day.
+For each profile, `< max - warning` is Fresh / Normal, `max - warning` through `max` inclusive is Use Soon, and `> max` is Check Food.
 
 ## Expiry
 
-The expiry rule converts a supported `expiry_date` to a calendar date and compares it with today:
+Dates are compared as calendar dates using the configured one-day Use Soon window:
 
-| Expiry value | Severity | Status |
-| --- | ---: | --- |
-| Missing (`None`) | 0 | Fresh / Normal |
-| Today | 1 | Use Soon |
-| Tomorrow | 1 | Use Soon |
-| Later than tomorrow | 0 | Fresh / Normal |
-| Before today | 2 | Check Food |
-| Invalid / unsupported date | 2 | Check Food |
+| Expiry date | Status |
+| --- | --- |
+| Before today | Check Food |
+| Today or tomorrow | Use Soon |
+| Later than tomorrow | Fresh / Normal |
+| Missing | Fresh / Normal |
+| Invalid/unsupported | Check Food |
 
-Expiry on the current day is not considered past expiry. Invalid values return `Invalid expiry date.`
+## Multiple active foods
 
-## Aggregation and reasons
+One ESP32 environmental reading is evaluated independently against every Active Food. The backend persists one `food_freshness_snapshot` per active food, and the top-level reading freshness is the worst (maximum severity) among those food evaluations. With zero Active Foods, the existing foodless environment evaluation is preserved. The ESP32 does not select one food ID for this decision.
 
-The final severity is the maximum severity returned by the temperature, humidity, gas, door, storage-duration, and expiry rules. For example, Temperature = Fresh, Storage Duration = Use Soon, and Expiry = Fresh produce final status **Use Soon**.
+## Remaining fixed behavior
 
-Every rule with severity greater than 0 contributes its reason, joined with `; ` in rule order. Multiple warnings and faults are therefore retained together. If every rule is severity 0, the reason is `All sensor readings are available`.
-
-## Data model / input meaning
-
-- `inserted_at` is the date FreshGuard uses as the beginning of tracked storage for the food item.
-- `manufacture_date` is stored by the Food API, but the Freshness Engine does not receive or use it.
-- `expiry_date` is an independent input to the expiry rule.
-
-## Current Prototype Limitations
-
-- Humidity quality thresholds are **Not implemented yet**; finite numeric values are treated as available.
-- A calibrated gas/ppm threshold is **Not implemented yet**; `gas_raw` is checked for presence and numeric validity only.
-- Storage and expiry rules use calendar dates and the host's `date.today()` when no test date is injected internally; they do not use elapsed-time freshness calculations.
-- Missing food category/insertion date skips the storage-duration rule, and missing expiry date skips the expiry rule.
-- Storage profiles are prototype configuration in code and are explicitly not general food-safety standards.
-- Door timeout and temperature limits are fixed constants/branches in the current engine; no runtime profile-specific sensor thresholds are implemented.
+The 8°C warning-text boundary is the remaining undocumented-style magic number identified by this audit. It does not change business severity. No other runtime or database rule was changed as part of this documentation alignment.

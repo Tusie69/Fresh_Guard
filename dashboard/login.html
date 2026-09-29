@@ -4,25 +4,33 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FreshGuard Login</title>
+  <link rel="stylesheet" href="/static/freshguard-ui.css">
   <style>
-    :root { font-family: "Segoe UI", Arial, sans-serif; color: #18312b; background: #eef5f1; }
-    * { box-sizing: border-box; }
-    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 20px; }
-    main { width: min(420px, 100%); padding: 32px; background: #fff; border: 1px solid #dce7e2; border-radius: 16px; box-shadow: 0 10px 30px rgb(20 60 45 / 10%); }
-    h1 { margin: 0 0 8px; color: #176b52; }
-    p { color: #61736c; }
-    label { display: block; margin: 18px 0 6px; font-weight: 600; }
-    input { width: 100%; padding: 11px 12px; border: 1px solid #cbdad3; border-radius: 8px; font: inherit; }
-    button { width: 100%; margin-top: 22px; padding: 12px; border: 0; border-radius: 8px; color: white; background: #176b52; font: inherit; font-weight: 700; cursor: pointer; }
-    button:disabled { opacity: .6; cursor: wait; }
-    #message { margin: 16px 0 0; padding: 10px; border-radius: 8px; background: #fff0ee; color: #8d2018; }
-    [hidden] { display: none !important; }
+    :root { font-family: "Segoe UI", Arial, sans-serif; color:#17201C; background:#F7F4EC; }
+    * { box-sizing:border-box; }
+    body { min-height:100vh; margin:0; display:grid; place-items:center; padding:20px; background:#F7F4EC; }
+    main { width:min(390px,100%); padding:26px 28px 28px; background:#FFFEFB; border:1px solid #DDD8CD; border-radius:8px; box-shadow:0 1px 3px rgba(50,45,35,.08); }
+    .brand { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+    .brand-mark { width:30px; height:30px; color:#123D31; }
+    .brand-mark path { fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:1.8; }
+    h1 { margin:0; color:#123D31; font-size:1.45rem; letter-spacing:-.03em; }
+    .subtitle { margin:0 0 20px; color:#68716B; font-size:.85rem; }
+    .context { margin:0 0 18px; padding:9px 11px; border-left:3px solid #123D31; background:#F2EFE8; color:#68716B; font-size:.74rem; }
+    label { display:block; margin:14px 0 6px; color:#17201C; font-size:.76rem; font-weight:700; }
+    input { width:100%; padding:10px 11px; border:1px solid #D5D0C5; border-radius:6px; background:#FFFEFB; color:#17201C; font:inherit; }
+    input:focus { outline:2px solid #B8D8C7; border-color:#48695D; }
+    button { width:100%; margin-top:20px; padding:10px 12px; border:0; border-radius:6px; color:#fff; background:#123D31; font:inherit; font-weight:700; cursor:pointer; }
+    button:hover { background:#165A43; }
+    button:disabled { opacity:.6; cursor:wait; }
+    #message { margin:14px 0 0; padding:9px 10px; border:1px solid #E4C1B5; border-radius:6px; background:#F5E1D9; color:#7B4637; font-size:.78rem; }
+    [hidden] { display:none !important; }
   </style>
 </head>
 <body>
   <main>
-    <h1>FreshGuard</h1>
-    <p>Sign in to access your dashboard.</p>
+    <div class="brand"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.5-2.8 7.8-7 10-4.2-2.2-7-5.5-7-10V6l7-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg><h1>FreshGuard</h1></div>
+    <p class="subtitle">Sign in to your monitoring workspace.</p>
+    <p class="context">Admin access is required for rules, users and system controls.</p>
     <form id="login-form">
       <label for="username">Username</label>
       <input id="username" name="username" autocomplete="username" required>

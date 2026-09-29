@@ -9,6 +9,52 @@ from app.database import get_db_connection
 events_bp = Blueprint("events", __name__)
 
 
+@events_bp.get("/events")
+def list_events():
+    limit = request.args.get("limit", default=50, type=int)
+    event_type = request.args.get("event_type")
+    if limit < 1:
+        return {
+            "success": False,
+            "error": "INVALID_LIMIT",
+            "message": "Limit must be greater than 0",
+        }, 400
+    limit = min(limit, 100)
+    if event_type is not None and not event_type.strip():
+        return {
+            "success": False,
+            "error": "INVALID_EVENT_TYPE",
+            "message": "event_type must not be empty",
+        }, 400
+    connection = get_db_connection()
+    try:
+        event_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(events)")
+        }
+        optional_select = ", door_open" if "door_open" in event_columns else ", 0 AS door_open"
+        optional_select += (
+            ", open_duration_seconds" if "open_duration_seconds" in event_columns
+            else ", 0 AS open_duration_seconds"
+        )
+        select_sql = (
+            "SELECT id, event_id, device_id, timestamp, event_type, payload, "
+            "created_at" + optional_select + " FROM events"
+        )
+        if event_type:
+            rows = connection.execute(
+                select_sql + " WHERE event_type = ? ORDER BY id DESC LIMIT ?",
+                (event_type.strip(), limit),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                select_sql + " ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return {"success": True, "events": [dict(row) for row in rows]}, 200
+    finally:
+        connection.close()
+
+
 def _valid_timestamp(value):
     if not isinstance(value, str) or not value.strip():
         return False

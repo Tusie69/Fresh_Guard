@@ -4,10 +4,13 @@ import math
 import sqlite3
 import uuid
 
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 
 from app.database import get_db_connection
 from app.services.freshness import evaluate_freshness
+from app.services.reading_ingest import (
+    delivery_metadata, parse_device_timestamp, utc_now,
+)
 from app.services.gas_anomaly import (
     get_gas_anomaly_state,
     is_valid_gas_reading,
@@ -34,6 +37,66 @@ from app.services.reading_protocol import (
 readings_bp = Blueprint("readings", __name__)
 
 
+@readings_bp.after_request
+def log_reading_error(response):
+    if request.endpoint == "readings.create_reading" and response.status_code >= 400:
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        result = response.get_json(silent=True) or {}
+        current_app.logger.error(
+            "[READING ERROR] device=%r id=%r reason=%s http=%s",
+            payload.get("device_id", payload.get("d")),
+            payload.get("device_reading_id", payload.get("id")),
+            result.get("error", "request_failed"), response.status_code,
+        )
+    return response
+
+
+NOTIFICATION_TYPES = frozenset({
+    "FOOD_USE_SOON", "FOOD_CHECK_FOOD", "FOOD_RECOVERED",
+})
+
+
+def _food_notification_type(previous_status, current_status):
+    """Return the MVP notification type for one food status transition."""
+    if previous_status is None:
+        return {
+            "Use Soon": "FOOD_USE_SOON",
+            "Check Food": "FOOD_CHECK_FOOD",
+        }.get(current_status)
+    if previous_status == current_status:
+        return None
+    if previous_status == "Fresh / Normal":
+        return {
+            "Use Soon": "FOOD_USE_SOON",
+            "Check Food": "FOOD_CHECK_FOOD",
+        }.get(current_status)
+    if previous_status == "Use Soon" and current_status == "Check Food":
+        return "FOOD_CHECK_FOOD"
+    if previous_status == "Check Food" and current_status in {
+        "Fresh / Normal", "Use Soon",
+    }:
+        return "FOOD_RECOVERED"
+    return None
+
+
+def _persist_food_notification(connection, event_key, notification_type,
+                               food_id, reading_id, payload, created_at):
+    if notification_type not in NOTIFICATION_TYPES:
+        raise ValueError(f"Unsupported notification type: {notification_type}")
+    connection.execute(
+        """INSERT INTO notification_outbox (
+               event_key, notification_type, food_id, reading_id,
+               payload_json, delivery_status, created_at
+           ) VALUES (?, ?, ?, ?, ?, 'PENDING', ?)""",
+        (
+            event_key, notification_type, food_id, reading_id,
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+            created_at,
+        ),
+    )
+
+
 def _is_finite_sensor_number(value):
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return False
@@ -41,18 +104,6 @@ def _is_finite_sensor_number(value):
         return math.isfinite(value)
     except (OverflowError, TypeError):
         return False
-
-
-def _is_valid_timestamp(value):
-    if not isinstance(value, str) or not value.strip():
-        return False
-    if not any(separator in value for separator in ("T", "t", " ")):
-        return False
-    try:
-        datetime.fromisoformat(value)
-    except ValueError:
-        return False
-    return True
 
 
 def _persist_gas_transition_event(connection, data, food_id, previous_active,
@@ -206,6 +257,10 @@ def _reading_response(row, duplicate):
         "reading_id": row["id"],
         "device_reading_id": row["device_reading_id"],
         "duplicate": duplicate,
+        "timestamp": row["timestamp"],
+        "received_at": row["received_at"],
+        "delivery_delay_seconds": row["delivery_delay_seconds"],
+        "ingest_status": row["ingest_status"],
         "freshness": {
             "status": row["freshness_status"],
             "reason": row["freshness_reason"]
@@ -595,6 +650,7 @@ def get_food(food_id):
 
 @readings_bp.post("/readings")
 def create_reading():
+    received_at = utc_now()  # Route entry, before JSON parsing or the DB lock.
     data = request.get_json(silent=True)
 
     if not isinstance(data, dict):
@@ -653,11 +709,13 @@ def create_reading():
             "message": "device_reading_id must be a canonical UUID v4"
         }, 400
 
-    if not _is_valid_timestamp(data["timestamp"]):
+    try:
+        captured_at = parse_device_timestamp(data["timestamp"])
+    except ValueError as error:
         return {
             "success": False,
             "error": "INVALID_TIMESTAMP",
-            "message": "timestamp must be a valid ISO datetime"
+            "message": str(error)
         }, 400
 
     for field in ("temperature_c", "humidity_pct", "gas_raw"):
@@ -710,8 +768,9 @@ def create_reading():
         "food_id": food_id,
     }
 
-    connection = get_db_connection()
+    connection = None
     try:
+        connection = get_db_connection()
         # Capture one immutable snapshot so all processors and freshness use
         # identical rules for this reading.
         rules = get_freshness_rules(connection)
@@ -727,6 +786,14 @@ def create_reading():
             if existing is not None:
                 if _reading_payload_matches(existing, canonical_payload):
                     connection.rollback()
+                    current_app.logger.info(
+                        "[DUPLICATE REPLAY] device=%r id=%s action=reused_existing_reading",
+                        data["device_id"], device_reading_id,
+                    )
+                    current_app.logger.info(
+                        "[TELEGRAM SKIPPED] reason=duplicate_replay device=%r reading_id=%s",
+                        data["device_id"], device_reading_id,
+                    )
                     return _reading_response(existing, True), 200
                 connection.rollback()
                 return {
@@ -735,6 +802,17 @@ def create_reading():
                     "message": "device_reading_id was already used with a different payload",
                     "device_reading_id": device_reading_id
                 }, 409
+
+        # Stored duplicates retain their first receipt metadata, even if the
+        # server clock has changed since that successful transaction.
+        try:
+            ingest = delivery_metadata(captured_at, received_at)
+        except ValueError as error:
+            connection.rollback()
+            return {
+                "success": False, "error": "INVALID_TIMESTAMP",
+                "message": str(error),
+            }, 400
 
         food = None
         if food_id is not None:
@@ -777,8 +855,22 @@ def create_reading():
             }]
 
         evaluations = []
+        if not active_foods:
+            current_app.logger.info(
+                "[TELEGRAM SKIPPED] reason=no_active_foods device=%r reading_id=%s",
+                data["device_id"], device_reading_id,
+            )
         for context in food_contexts:
             context_food_id = context["food_id"]
+            previous_snapshot = None
+            if context_food_id is not None and active_foods:
+                previous_snapshot = connection.execute(
+                    """SELECT freshness_status
+                       FROM food_freshness_snapshots
+                       WHERE food_id = ?
+                       ORDER BY id DESC LIMIT 1""",
+                    (context_food_id,),
+                ).fetchone()
             previous_gas_state = get_gas_anomaly_state(
                 connection, data["device_id"], context_food_id
             )
@@ -813,6 +905,10 @@ def create_reading():
             )
             evaluations.append({
                 "context": context,
+                "previous_status": (
+                    previous_snapshot["freshness_status"]
+                    if previous_snapshot is not None else None
+                ),
                 "previous_gas_active": previous_gas_active,
                 "gas_anomaly_active": gas_anomaly_active,
                 "sensor_fault_transitions": sensor_fault_transitions,
@@ -843,15 +939,16 @@ def create_reading():
                 device_id, timestamp, temperature_c, humidity_pct, gas_raw,
                 door_open, open_duration_seconds, food_id, device_reading_id,
                 freshness_status, freshness_reason, freshness_evaluated_at,
-                gas_anomaly_active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                gas_anomaly_active, received_at, delivery_delay_seconds, ingest_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 data["device_id"], data["timestamp"], data["temperature_c"],
                 data["humidity_pct"], data["gas_raw"], int(data["door_open"]),
                 open_duration_seconds, food_id, device_reading_id,
                 freshness_status, freshness_reason, freshness_evaluated_at,
-                int(any(item["gas_anomaly_active"] for item in evaluations))
+                int(any(item["gas_anomaly_active"] for item in evaluations)),
+                ingest["received_at"], ingest["delivery_delay_seconds"], ingest["ingest_status"],
             )
         )
         reading_id = cursor.lastrowid
@@ -885,10 +982,54 @@ def create_reading():
                         freshness_evaluated_at,
                     ),
                 )
+                current_status = item["freshness"].status.value
+                previous_status = item["previous_status"]
+                notification_type = _food_notification_type(
+                    previous_status, current_status,
+                )
+                if notification_type is not None:
+                    event_key = (
+                        f"food:{context_food_id}:reading:{reading_id}:"
+                        f"{notification_type}"
+                    )
+                    payload = {
+                        "notification_type": notification_type,
+                        "food_id": context_food_id,
+                        "food_name": context["food_name"],
+                        "category": context["category"],
+                        "previous_status": previous_status,
+                        "current_status": current_status,
+                        "freshness_reason": item["freshness"].reason,
+                        "device_id": data["device_id"],
+                        "reading_id": reading_id,
+                        "reading_timestamp": data["timestamp"],
+                        "device_reading_id": device_reading_id,
+                        "temperature_c": data["temperature_c"],
+                        "humidity_pct": data["humidity_pct"],
+                        "gas_raw": data["gas_raw"],
+                        "door_open": data["door_open"],
+                    }
+                    _persist_food_notification(
+                        connection, event_key, notification_type,
+                        context_food_id, reading_id, payload,
+                        freshness_evaluated_at,
+                    )
+                else:
+                    current_app.logger.info(
+                        "[TELEGRAM SKIPPED] reason=%s device=%r reading_id=%s food=%r status=%s",
+                        "status_unchanged" if previous_status == current_status else "policy",
+                        data["device_id"], device_reading_id, context_food_id, current_status,
+                    )
         connection.commit()
         stored = connection.execute(
             "SELECT * FROM sensor_readings WHERE id = ?", (reading_id,)
         ).fetchone()
+        current_app.logger.info(
+            "[READING %s] device=%r id=%s captured_at=%s received_at=%s delay=%ss freshness=%s",
+            ingest["ingest_status"], data["device_id"], device_reading_id,
+            data["timestamp"], ingest["received_at"], ingest["delivery_delay_seconds"],
+            freshness_status,
+        )
         if device_reading_id is not None:
             return _reading_response(stored, False), 201
         return {
@@ -900,8 +1041,17 @@ def create_reading():
                 "reason": freshness_reason
             }
         }, 201
+    except sqlite3.Error:
+        if connection is not None:
+            connection.rollback()
+        current_app.logger.exception("[READING ERROR] reason=db_persistence_failure")
+        return {
+            "success": False, "error": "DATABASE_ERROR",
+            "message": "Unable to persist reading; retry with the same device_reading_id",
+        }, 503
     finally:
-        connection.close()
+        if connection is not None:
+            connection.close()
 
 @readings_bp.get("/readings/latest")
 def get_latest_reading():
@@ -915,6 +1065,9 @@ def get_latest_reading():
                 r.device_id,
                 r.device_reading_id,
                 r.timestamp,
+                r.received_at,
+                r.delivery_delay_seconds,
+                r.ingest_status,
                 r.temperature_c,
                 r.humidity_pct,
                 r.gas_raw,
@@ -999,6 +1152,9 @@ def get_readings():
                 r.device_id,
                 r.device_reading_id,
                 r.timestamp,
+                r.received_at,
+                r.delivery_delay_seconds,
+                r.ingest_status,
                 r.temperature_c,
                 r.humidity_pct,
                 r.gas_raw,

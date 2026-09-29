@@ -324,8 +324,9 @@ def test_event_failure_rolls_back_reading_and_exposure_state(temperature_client)
     finally:
         connection.close()
 
-    with pytest.raises(sqlite3.IntegrityError):
-        post_temperature(temperature_client, 6, seconds=5, reading_id=str(uuid.uuid4()))
+    response = post_temperature(temperature_client, 6, seconds=5, reading_id=str(uuid.uuid4()))
+    assert response.status_code == 503
+    assert response.json["error"] == "DATABASE_ERROR"
 
     state = state_for(temperature_client)
     assert state["exposure_seconds"] == 7200

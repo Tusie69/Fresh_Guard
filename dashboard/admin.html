@@ -6,6 +6,7 @@
   <title>FreshGuard Admin</title>
   <link rel="icon" href="/static/favicon.ico">
   <link href="/static/assets/styles/main.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/freshguard-ui.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7/css/all.min.css">
   <style>
     [hidden] { display: none !important; }
@@ -26,7 +27,7 @@
     .badge-cooked { background-color: #f3e8ff; color: #6b21a8; }
   </style>
 </head>
-<body>
+<body class="admin-dashboard">
 <div class="app-container app-theme-white body-tabs-shadow fixed-sidebar fixed-header">
 
   <!-- Header -->
@@ -296,7 +297,7 @@
                     </div>
                     <div class="border-top pt-2 mt-2 d-flex justify-content-between small text-muted">
                       <span>Device / Observed at:</span>
-                      <span class="fw-semibold text-dark"><span id="overview-device" class="badge bg-secondary me-1">FG-ESP32-01</span> <span id="overview-observed-at">—</span></span>
+                      <span class="fw-semibold text-dark"><span id="overview-device" class="badge bg-secondary me-1">Not available</span> <span id="overview-observed-at">Not available</span></span>
                     </div>
                   </div>
                 </div>
@@ -385,6 +386,12 @@
                       <span class="input-group-text"><i class="fa fa-search"></i></span>
                       <input type="text" id="food-search" class="form-control" placeholder="Search food by name, ID or location…">
                     </div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-check form-check-inline small text-muted mb-0">
+                      <input class="form-check-input" type="checkbox" id="show-inactive-foods">
+                      <span class="form-check-label">Show inactive foods</span>
+                    </label>
                   </div>
                 </div>
 
@@ -685,7 +692,7 @@
     <div class="row g-2 mb-2">
       <div class="col-6">
         <label for="reading-input-device" class="form-label small text-muted mb-1">Device ID *</label>
-        <input id="reading-input-device" class="form-control" value="FG-ESP32-01" required>
+        <input id="reading-input-device" class="form-control" placeholder="Enter device ID" required>
       </div>
       <div class="col-6">
         <label for="reading-input-door" class="form-label small text-muted mb-1">Door State *</label>
@@ -852,9 +859,9 @@ function getMeta(rules, key) { return key.split(".").reduce((value, part) => val
 
 function addRuleCard(container, key, meta) {
   const col = document.createElement("div");
-  col.className = "col-md-6 col-xl-4 mb-3";
+  col.className = "col-md-6 col-xl-3 mb-2";
   const card = document.createElement("div");
-  card.className = `p-3 rounded border h-100 rule-card ${meta.editable ? "bg-white" : "bg-light"}`;
+  card.className = `p-3 rounded border rule-card ${meta.editable ? "bg-white" : "bg-light"}`;
   const label = document.createElement("label");
   label.className = "d-block small fw-bold text-muted mb-1";
   label.textContent = labels[key.split(".").pop()] || key;
@@ -892,6 +899,10 @@ function renderRules(rules) {
   state.original.clear();
   const root = $("rules-form");
   root.replaceChildren();
+  if (!rules || !Object.keys(rules).length) {
+    root.innerHTML = '<div class="admin-empty-state"><i class="fa fa-sliders-h"></i><strong>No freshness rule data available.</strong><span>Rules could not be loaded from the backend.</span></div>';
+    return;
+  }
   const groups = [
     { key: "temperature", title: "Temperature" },
     { key: "gas", title: "Gas" },
@@ -901,6 +912,8 @@ function renderRules(rules) {
     { key: "expiry", title: "Expiry" }
   ];
   groups.forEach(group => {
+    const groupRules = rules[group.key] || {};
+    if (!Object.keys(groupRules).length) return;
     const section = document.createElement("div");
     section.className = "mb-4";
     const title = document.createElement("h6");
@@ -910,15 +923,15 @@ function renderRules(rules) {
     const grid = document.createElement("div");
     grid.className = "row";
     if (group.key === "storage") {
-      Object.entries(rules.storage || {}).forEach(([category, fields]) =>
+      Object.entries(groupRules).forEach(([category, fields]) =>
         Object.entries(fields).forEach(([field, meta]) => addRuleCard(grid, `storage.${category}.${field}`, meta))
       );
     } else if (group.key === "humidity") {
-      Object.entries(rules.humidity || {}).forEach(([category, fields]) =>
+      Object.entries(groupRules).forEach(([category, fields]) =>
         Object.entries(fields).forEach(([field, meta]) => addRuleCard(grid, `humidity.${category}.${field}`, meta))
       );
     } else {
-      Object.entries(rules[group.key] || {}).forEach(([field, meta]) =>
+      Object.entries(groupRules).forEach(([field, meta]) =>
         addRuleCard(grid, `${group.key}.${field}`, meta)
       );
     }
@@ -1042,49 +1055,53 @@ async function loadOverview() {
     $("recent-changes").textContent = overview.freshness_rules.latest_change_at
       ? `Last change: ${overview.freshness_rules.latest_change_at}`
       : "No rule changes recorded.";
-  } catch (_) {}
+  } catch (_) {
+    ["user-count", "active-user-count", "reading-count", "food-count", "event-count", "editable-count", "locked-count", "overview-active-foods"].forEach(id => { if ($(id)) $(id).textContent = "Not available"; });
+    $("recent-changes").textContent = "No rule change data available.";
+  }
 
   // Active foods count
   try {
     const activeRes = await api("/foods/active");
     $("overview-active-foods").textContent = activeRes.data ? activeRes.data.length : 0;
   } catch (_) {
-    $("overview-active-foods").textContent = "—";
+    $("overview-active-foods").textContent = "Not available";
   }
 
   // Live sensor data from readings/latest
   try {
     const res = await api("/readings/latest");
     const d = res.data;
-    $("overview-device").textContent = d.device_id || "FG-ESP32-01";
-    $("overview-temperature").textContent = d.temperature_c != null ? `${d.temperature_c} °C` : "Data Unavailable";
-    $("overview-humidity").textContent = d.humidity_pct != null ? `${d.humidity_pct} %` : "Data Unavailable";
-    $("overview-gas").textContent = d.gas_raw != null ? `${d.gas_raw}` : "Data Unavailable";
+    $("overview-device").textContent = d.device_id || "Not available";
+    $("overview-temperature").textContent = d.temperature_c != null ? `${d.temperature_c} °C` : "Not available";
+    $("overview-humidity").textContent = d.humidity_pct != null ? `${d.humidity_pct} %` : "Not available";
+    $("overview-gas").textContent = d.gas_raw != null ? `${d.gas_raw}` : "Not available";
     if (d.door_open === true) {
       $("overview-door").innerHTML = '<span class="text-danger"><i class="fa fa-door-open me-1"></i>OPEN</span>';
     } else if (d.door_open === false) {
       $("overview-door").innerHTML = '<span class="text-success"><i class="fa fa-door-closed me-1"></i>CLOSED</span>';
     } else {
-      $("overview-door").textContent = "Data Unavailable";
+      $("overview-door").textContent = "Not available";
     }
     const fs = d.freshness;
-    $("overview-freshness").textContent = fs && fs.status ? fs.status : "Data Unavailable";
-    if (fs && fs.status === "Spoiled") $("overview-freshness").className = "fs-4 fw-bold text-danger mb-1";
-    else if (fs && (fs.status === "Needs Attention" || fs.status === "Check Food")) $("overview-freshness").className = "fs-4 fw-bold text-warning mb-1";
-    else $("overview-freshness").className = "fs-4 fw-bold text-success mb-1";
+    $("overview-freshness").textContent = fs && fs.status ? fs.status : "Not available";
+    if (fs && fs.status === "Fresh / Normal") $("overview-freshness").className = "fs-4 fw-bold admin-status-fresh mb-1";
+    else if (fs && fs.status === "Use Soon") $("overview-freshness").className = "fs-4 fw-bold admin-status-soon mb-1";
+    else if (fs && fs.status === "Check Food") $("overview-freshness").className = "fs-4 fw-bold admin-status-check mb-1";
+    else $("overview-freshness").className = "fs-4 fw-bold text-muted mb-1";
 
-    $("overview-reason").textContent = fs && fs.reason ? fs.reason : "—";
+    $("overview-reason").textContent = fs && fs.reason ? fs.reason : "No freshness evaluation available.";
     const ts = d.timestamp;
-    $("overview-observed-at").textContent = ts ? ts.replace("T", " ").replace("+07:00", "").replace("Z", "") : "Unknown";
+    $("overview-observed-at").textContent = ts ? ts.replace("T", " ").replace("+07:00", "").replace("Z", "") : "Not available";
   } catch (err) {
-    const u = err.status === 404 ? "Data Unavailable" : "Sensor unavailable";
+    const u = "Not available";
     $("overview-temperature").textContent = u;
     $("overview-humidity").textContent = u;
     $("overview-gas").textContent = u;
     $("overview-door").textContent = u;
     $("overview-freshness").textContent = u;
-    $("overview-reason").textContent = "—";
-    $("overview-observed-at").textContent = "—";
+    $("overview-reason").textContent = "No recent reading available.";
+    $("overview-observed-at").textContent = "Not available";
   }
 }
 
@@ -1103,12 +1120,10 @@ function getCategoryBadge(cat) {
 
 function getFreshnessBadge(status) {
   if (!status) return '<span class="badge bg-light text-dark border">Not Evaluated</span>';
-  const s = String(status).toLowerCase();
-  if (s.includes("fresh") || s.includes("normal")) return `<span class="badge bg-success">${status}</span>`;
-  if (s.includes("attention") || s.includes("warning")) return `<span class="badge bg-warning text-dark">${status}</span>`;
-  if (s.includes("check")) return `<span class="badge bg-warning text-dark">${status}</span>`;
-  if (s.includes("spoil")) return `<span class="badge bg-danger">${status}</span>`;
-  return `<span class="badge bg-info">${status}</span>`;
+  if (status === "Fresh / Normal") return `<span class="badge admin-badge-fresh">${status}</span>`;
+  if (status === "Use Soon") return `<span class="badge admin-badge-soon">${status}</span>`;
+  if (status === "Check Food") return `<span class="badge admin-badge-check">${status}</span>`;
+  return `<span class="badge bg-light text-dark border">${status}</span>`;
 }
 
 async function loadFoods() {
@@ -1148,8 +1163,10 @@ function renderFoodsTable() {
 
   const filter = state.activeCategoryFilter;
   const search = ($("food-search")?.value || "").toLowerCase().trim();
+  const showInactive = $("show-inactive-foods")?.checked === true;
 
   const filtered = state.foods.filter(item => {
+    if (!showInactive && !item.is_active) return false;
     if (filter !== "ALL" && item.category !== filter) return false;
     if (search) {
       const match = (item.food_name || "").toLowerCase().includes(search) ||
@@ -1165,7 +1182,7 @@ function renderFoodsTable() {
     const cell = row.insertCell();
     cell.colSpan = 10;
     cell.className = "text-center text-muted py-4";
-    cell.innerHTML = '<i class="fa fa-box-open fa-2x mb-2 d-block text-secondary opacity-50"></i>No matching food items found.';
+    cell.innerHTML = '<i class="fa fa-box-open fa-2x mb-2 d-block text-secondary opacity-50"></i>' + (showInactive ? 'No matching food items found.' : 'No active food items found. Enable “Show inactive foods” to view inactive records.');
     return;
   }
 
@@ -1188,7 +1205,7 @@ function renderFoodsTable() {
         <button class="btn btn-sm ${item.is_active ? "btn-outline-warning" : "btn-outline-success"} me-1 btn-toggle-active" data-id="${item.food_id}" data-active="${item.is_active}" title="${item.is_active ? "Stop tracking" : "Start tracking"}">
           <i class="fa ${item.is_active ? "fa-pause" : "fa-play"}"></i>
         </button>
-        <button class="btn btn-sm btn-outline-danger btn-delete-food" data-id="${item.food_id}" data-name="${item.food_name}" title="Delete food item">
+        <button class="btn btn-sm btn-outline-danger btn-delete-food" data-id="${item.food_id}" data-name="${item.food_name}" title="Remove food from monitoring">
           <i class="fa fa-trash"></i>
         </button>
       </td>
@@ -1218,12 +1235,12 @@ async function toggleFoodActive(foodId, currentlyActive) {
 
 async function deleteFood(foodId, foodName) {
   promptAction({
-    title: "Delete Food Item",
-    description: `Are you sure you want to permanently delete "${foodName}" (${foodId})? Active tracking and freshness snapshots for this food will also be removed.`,
+    title: "Remove Food from Monitoring",
+    description: `Remove "${foodName}" (${foodId}) from active monitoring? Historical readings and freshness snapshots will be preserved.`,
     onConfirm: async ({ reason }) => {
       try {
-        await api(`/foods/${foodId}`, { method: "DELETE" });
-        showMessage(`Food ${foodId} deleted successfully.`);
+        await api(`/foods/${foodId}/deactivate`, { method: "POST" });
+        showMessage(`Food ${foodId} removed from monitoring.`);
         await loadFoods();
         await loadOverview();
       } catch (error) {
@@ -1314,7 +1331,7 @@ async function loadReadings() {
       row.innerHTML = `
         <td><span class="text-muted small">#${r.id}</span></td>
         <td><strong>${ts}</strong></td>
-        <td><span class="badge bg-dark">${r.device_id || "FG-ESP32-01"}</span></td>
+        <td><span class="badge bg-dark">${r.device_id || "Not available"}</span></td>
         <td>${tempBadge}</td>
         <td><strong>${r.humidity_pct != null ? `${r.humidity_pct}%` : "—"}</strong></td>
         <td><code>${r.gas_raw != null ? r.gas_raw : "—"}</code></td>
@@ -1342,7 +1359,8 @@ function generateUUID() {
 
 async function ingestTestReading(event) {
   event.preventDefault();
-  const deviceId = $("reading-input-device").value.trim() || "FG-ESP32-01";
+  const deviceId = $("reading-input-device").value.trim();
+  if (!deviceId) return showMessage("Device ID is required.", true);
   const temp = Number($("reading-input-temp").value);
   const hum = Number($("reading-input-humidity").value);
   const gas = parseInt($("reading-input-gas").value, 10);
@@ -1406,7 +1424,7 @@ async function loadEvents() {
       row.innerHTML = `
         <td><small class="text-muted">#${ev.id}</small></td>
         <td><strong>${ts}</strong></td>
-        <td><span class="badge bg-dark">${ev.device_id || "FG-ESP32-01"}</span></td>
+        <td><span class="badge bg-dark">${ev.device_id || "Not available"}</span></td>
         <td><span class="badge ${badgeClass}">${ev.event_type}</span></td>
         <td>${ev.door_open ? `<span class="badge bg-danger">Open (${ev.open_duration_seconds}s)</span>` : '<span class="badge bg-success">Closed</span>'}</td>
         <td><code class="small" style="word-break:break-all;">${ev.payload || "{}"}</code></td>
@@ -1425,6 +1443,11 @@ async function loadUsers() {
     const result = await api("/admin/users");
     const body = $("users-body");
     body.replaceChildren();
+    if (!result.users || !result.users.length) {
+      const row = body.insertRow(); const cell = row.insertCell();
+      cell.colSpan = 7; cell.className = "admin-empty-cell"; cell.textContent = "No user accounts available.";
+      return;
+    }
     result.users.forEach(user => {
       const row = body.insertRow();
       [user.id, user.username, user.role, user.is_active ? "Active" : "Inactive", user.created_at, user.updated_at]
@@ -1459,60 +1482,14 @@ async function loadUsers() {
         });
       });
 
-      const pwdBtn = document.createElement("button");
-      pwdBtn.className = "btn btn-sm btn-outline-secondary me-1";
-      pwdBtn.innerHTML = '<i class="fa fa-key"></i>';
-      pwdBtn.title = "Reset Password";
-      pwdBtn.addEventListener("click", () => {
-        promptAction({
-          title: `Reset Password: ${user.username}`,
-          description: "Enter a new secure password for this user.",
-          extraLabel: "New Password *",
-          extraType: "password",
-          onConfirm: async ({ reason, extra }) => {
-            try {
-              await api(`/admin/users/${user.id}/reset-password`, {
-                method: "POST",
-                body: JSON.stringify({ new_password: extra, reason })
-              });
-              showMessage(`Password reset successfully for ${user.username}.`);
-            } catch (err) {
-              showMessage(err.message, true);
-            }
-          }
-        });
-      });
-
-      const delBtn = document.createElement("button");
-      delBtn.className = "btn btn-sm btn-outline-danger";
-      delBtn.innerHTML = '<i class="fa fa-trash"></i>';
-      delBtn.title = "Delete User";
-      delBtn.disabled = user.id === state.user.id;
-      delBtn.addEventListener("click", () => {
-        promptAction({
-          title: `Delete User: ${user.username}`,
-          description: `Permanently delete user "${user.username}"? This cannot be undone.`,
-          onConfirm: async ({ reason }) => {
-            try {
-              await api(`/admin/users/${user.id}`, {
-                method: "DELETE",
-                body: JSON.stringify({ reason })
-              });
-              showMessage(`User "${user.username}" deleted.`);
-              await loadUsers();
-            } catch (err) {
-              showMessage(err.message, true);
-            }
-          }
-        });
-      });
-
       actions.appendChild(roleBtn);
       actions.appendChild(statusBtn);
-      actions.appendChild(pwdBtn);
-      actions.appendChild(delBtn);
     });
-  } catch (error) { showMessage(error.message, true); }
+  } catch (error) {
+    const body = $("users-body");
+    if (body) body.innerHTML = '<tr><td colspan="7" class="admin-empty-cell admin-error-cell">User data is not available.</td></tr>';
+    showMessage(error.message, true);
+  }
 }
 
 async function updateUser(id, payload) {
@@ -1541,7 +1518,11 @@ async function loadUserAudit() {
       [item.created_at, item.actor_username, item.target_username, item.action, item.old_value ?? "", item.new_value ?? "", item.reason ?? ""]
         .forEach(value => row.insertCell().textContent = value);
     });
-  } catch (error) { showMessage(error.message, true); }
+  } catch (error) {
+    const body = $("user-audit-body");
+    if (body) body.innerHTML = '<tr><td colspan="7" class="admin-empty-cell admin-error-cell">User audit data is not available.</td></tr>';
+    showMessage(error.message, true);
+  }
 }
 
 async function createUser(event) {
@@ -1633,6 +1614,7 @@ $("cancel-food")?.addEventListener("click", () => $("food-dialog").close());
 $("food-form")?.addEventListener("submit", createFood);
 $("btn-refresh-foods")?.addEventListener("click", loadFoods);
 $("food-search")?.addEventListener("input", renderFoodsTable);
+$("show-inactive-foods")?.addEventListener("change", renderFoodsTable);
 
 document.querySelectorAll("#food-category-filters button").forEach(btn => {
   btn.addEventListener("click", () => {

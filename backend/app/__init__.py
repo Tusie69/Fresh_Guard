@@ -1,13 +1,18 @@
 from pathlib import Path
+import logging
 import os
 import secrets
 
 from flask import Flask, send_from_directory
 from flask_cors import CORS
+from dotenv import load_dotenv
 
 
 def create_app():
-    app = Flask(__name__)
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
+    # Dashboard assets are served explicitly from dashboard/static below.
+    app = Flask(__name__, static_folder=None)
+    app.logger.setLevel(logging.INFO)
     # Upgrade existing databases and seed newly introduced rules on every
     # startup. init_db is idempotent and preserves configured rule values.
     from app.init_db import init_db
@@ -21,6 +26,11 @@ def create_app():
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     dashboard_dir = Path(__file__).resolve().parents[2] / "dashboard"
+    dashboard_static_dir = dashboard_dir / "static"
+
+    @app.get("/static/<path:filename>")
+    def dashboard_static(filename):
+        return send_from_directory(dashboard_static_dir, filename)
 
     @app.get("/")
     def dashboard():
@@ -43,6 +53,12 @@ def create_app():
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
     from app.routes.freshness_rules import freshness_rules_bp
+
+    # Delivery is optional and runs outside request/reading transactions.
+    # Werkzeug's reloader only starts the worker in its serving process.
+    from app.services.telegram_notifier import start_telegram_worker
+    if os.environ.get("WERKZEUG_RUN_MAIN", "true") == "true":
+        start_telegram_worker(app)
 
     app.register_blueprint(readings_bp, url_prefix="/api/v1")
     app.register_blueprint(events_bp, url_prefix="/api/v1")

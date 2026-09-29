@@ -62,7 +62,7 @@ Install the Arduino libraries listed in the firmware comments, select an ESP32-W
 3. Stop Flask or disconnect the ESP32 from Wi-Fi.
 4. The ESP32 keeps readings in LittleFS at `pending_readings.jsonl`; it does not discard them when delivery is unconfirmed.
 5. Reboot while offline and verify `LittleFS recovered: ... records` in Serial output.
-6. Restore Flask/Wi-Fi. The durable FIFO is sent in order, and records are removed only after a validated backend acknowledgement.
+6. Restore Flask/Wi-Fi. The durable FIFO is sent in order in bounded batches of five; the next batch starts immediately after compaction, and records are removed only after a validated backend acknowledgement.
 
 Detailed acceptance checks are in [`doc/offline-reading-ingest.md`](doc/offline-reading-ingest.md).
 

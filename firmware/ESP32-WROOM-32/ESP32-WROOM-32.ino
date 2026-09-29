@@ -313,6 +313,9 @@ void maintainCompaction() {
   acknowledgedBytes = 0;
   storageFull = pendingCount >= MAX_OFFLINE_RECORDS || pendingBytes >= effectiveMaxBytes;
   deferredPersistAttempted = false; // Retry the held payload before another sync cycle.
+  // Continue draining the durable FIFO immediately instead of waiting for
+  // the normal 60-second sync interval between bounded batches.
+  syncRequested = pendingCount > 0 && WiFi.status() == WL_CONNECTED;
   Serial.printf("COMPACTION COMPLETE; durable pending Q:%u\n", unsigned(pendingCount));
 }
 

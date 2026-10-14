@@ -22,17 +22,22 @@
 // RTClib + Adafruit BusIO; LiquidCrystal. Others belong to ESP32 Arduino core.
 
 // ======================== DEMO CONFIG ========================
-const char* WIFI_SSID = "Tutuong";
-const char* WIFI_PASSWORD = "12345678"; // Never printed to Serial.
+const char* WIFI_SSID = "Nói Ít Thôi";
+const char* WIFI_PASSWORD = "nochodau"; // Never printed to Serial.
 // PC Wi-Fi IPv4 observed during setup. Update after changing networks.
 // ESP32 and PC need a reachable LAN; never use localhost here.
-const char* SERVER_URL = "http://10.24.51.175:5000/api/v1/readings";
+const char* SERVER_URL = "http://10.156.228.21:5000/api/v1/readings";
 const char* DEVICE_ID = "FG-ESP32-01";
 const char* FOOD_ID = ""; // Empty: omit. Otherwise use a registered backend food_id.
 const bool ENABLE_BACKEND = true;
 const bool AUTO_TEST = false; // No synthetic values are implemented.
+#ifdef OFFLINE_TEST_MODE
+const uint32_t SEND_INTERVAL_MS = 5000;
+const uint32_t SYNC_INTERVAL_MS = 5000;
+#else
 const uint32_t SEND_INTERVAL_MS = 60000;
 const uint32_t SYNC_INTERVAL_MS = 60000;
+#endif
 const size_t MAX_SYNC_PER_CYCLE = 5;
 const size_t MAX_OFFLINE_RECORDS = 1000;
 const size_t MAX_OFFLINE_BYTES = 384 * 1024;
@@ -78,6 +83,7 @@ struct PostRequest { char payload[MAX_RECORD_BYTES]; };
 struct PostResult {
   int code;
   bool confirmed;
+  bool duplicate;
   char status[20];
   char reason[256];
 };
@@ -155,20 +161,125 @@ bool durableClose(FILE* file) {
   return ok;
 }
 
-// Never discard a partial line or join it to a new record silently.
-bool readRecord(FILE* file, char* buffer) {
-  if (!fgets(buffer, MAX_RECORD_BYTES, file)) return false;
-  size_t length = strlen(buffer);
-  if (!length || buffer[length - 1] != '\n') return false;
-  buffer[length - 1] = '\0';
+bool validReadingJson(const char* buffer, size_t length) {
+  if (!length) return false;
+  char json[MAX_RECORD_BYTES];
+  if (length >= sizeof(json)) return false;
+  memcpy(json, buffer, length);
+  if (json[length - 1] == '\n') json[--length] = '\0';
+  if (length && json[length - 1] == '\r') json[--length] = '\0';
   JsonDocument doc;
-  if (deserializeJson(doc, buffer) || !doc.is<JsonObject>()) return false;
+  if (deserializeJson(doc, json) || !doc.is<JsonObject>()) return false;
   return doc["device_id"].is<const char*>() &&
          doc["device_reading_id"].is<const char*>() &&
          doc["timestamp"].is<const char*>() && doc["door_open"].is<bool>() &&
          doc.as<JsonObject>().containsKey("temperature_c") &&
          doc.as<JsonObject>().containsKey("humidity_pct") &&
          doc.as<JsonObject>().containsKey("gas_raw");
+}
+
+// Normal queue reads are newline-delimited. Boot recovery additionally accepts
+// one valid final JSON object without a newline and normalizes it below.
+bool readRecord(FILE* file, char* buffer) {
+  if (!fgets(buffer, MAX_RECORD_BYTES, file)) return false;
+  size_t length = strlen(buffer);
+  if (!length || buffer[length - 1] != '\n') return false;
+  return validReadingJson(buffer, length);
+}
+
+// Recover only an incomplete/corrupt tail. A broken record before EOF is a
+// structural corruption and must stop startup instead of silently dropping it.
+bool recoverPendingQueue(size_t& recoveredCount, size_t& recoveredBytes) {
+  Serial.println("QUEUE RECOVERY START");
+  FILE* input = fopen(PENDING_PATH, "rb");
+  if (!input) return false;
+  recoveredCount = 0;
+  recoveredBytes = 0;
+  bool needsReplacement = false;
+  bool structuralCorruption = false;
+  char record[MAX_RECORD_BYTES];
+  while (fgets(record, sizeof(record), input)) {
+    size_t length = strlen(record);
+    long position = ftell(input);
+    bool atEnd = position >= 0 && static_cast<size_t>(position) == pendingBytes;
+    bool hasNewline = length > 0 && record[length - 1] == '\n';
+    bool valid = validReadingJson(record, length);
+
+    if (!valid) {
+      if (atEnd) {
+        needsReplacement = true;
+        Serial.printf("QUEUE RECOVERY: partial tail detected after %u records\n",
+                      unsigned(recoveredCount));
+        break;
+      }
+      structuralCorruption = true;
+      break;
+    }
+
+    recoveredBytes += length;
+    ++recoveredCount;
+    if (!hasNewline) {
+      if (!atEnd) {
+        structuralCorruption = true;
+        break;
+      }
+      ++recoveredBytes;
+      needsReplacement = true;
+      break;
+    }
+    vTaskDelay(1);
+  }
+
+  if (ferror(input)) structuralCorruption = true;
+  fclose(input);
+  if (structuralCorruption) {
+    Serial.println("QUEUE RECOVERY ERROR: mid-file corruption; original preserved");
+    return false;
+  }
+  if (!needsReplacement) {
+    recoveredBytes = pendingBytes;
+    Serial.println("QUEUE RECOVERY CHECK: no repair needed");
+    return true;
+  }
+
+  // Only now create a replacement. A clean boot is read-only and does not
+  // rewrite the queue, reducing flash wear.
+  input = fopen(PENDING_PATH, "rb");
+  FILE* output = fopen(TEMP_PATH, "wb");
+  if (!input || !output) {
+    if (input) fclose(input);
+    if (output) fclose(output);
+    return false;
+  }
+  size_t copiedCount = 0;
+  while (copiedCount < recoveredCount && fgets(record, sizeof(record), input)) {
+    size_t length = strlen(record);
+    if (!validReadingJson(record, length) ||
+        fwrite(record, 1, length, output) != length) {
+      structuralCorruption = true;
+      break;
+    }
+    ++copiedCount;
+    if (record[length - 1] != '\n' && fputc('\n', output) == EOF) {
+      structuralCorruption = true;
+      break;
+    }
+  }
+  fclose(input);
+  bool outputClosed = durableClose(output);
+  if (structuralCorruption || !outputClosed || copiedCount != recoveredCount) {
+    remove(TEMP_PATH);
+    Serial.println("QUEUE RECOVERY ERROR: replacement copy failed; original preserved");
+    return false;
+  }
+  if (rename(TEMP_PATH, PENDING_PATH) != 0) {
+    Serial.println("QUEUE RECOVERY ERROR: atomic replacement failed; original preserved");
+    return false;
+  }
+  Serial.printf("QUEUE RECOVERY COMPLETE: preserved %u records, %u bytes\n",
+                unsigned(recoveredCount), unsigned(recoveredBytes));
+  pendingBytes = recoveredBytes;
+  return true;
 }
 
 bool countPendingReadings() {
@@ -198,8 +309,8 @@ void initStorage() {
   }
   effectiveMaxBytes = (total - MAX_REJECTED_BYTES - FS_RESERVE_BYTES) / 2;
   if (effectiveMaxBytes > MAX_OFFLINE_BYTES) effectiveMaxBytes = MAX_OFFLINE_BYTES;
-  // After interrupted compaction original is authoritative. Missing original
-  // plus an orphan temp requires inspection instead of guessing recovery state.
+  // After interrupted compaction the original queue is authoritative. An
+  // orphan temp can be discarded safely while the original still exists.
   int pendingState = fileState(PENDING_PATH);
   int tempState = fileState(TEMP_PATH);
   if (pendingState < 0 || tempState < 0) {
@@ -217,17 +328,23 @@ void initStorage() {
       return;
     }
   }
-  if (!getFileSize(PENDING_PATH, pendingBytes, false) || !countPendingReadings()) {
-    storageError("incomplete/corrupt pending record; recover log manually");
+  if (!getFileSize(PENDING_PATH, pendingBytes, false)) {
+    storageError("cannot inspect pending queue size");
     return;
   }
-  if (tempState == 1 && remove(TEMP_PATH) != 0) {
+  if (tempState == 1 && pendingState == 1 && remove(TEMP_PATH) != 0) {
     storageError("cannot remove abandoned replacement log");
+    return;
+  }
+  if (!recoverPendingQueue(pendingCount, pendingBytes) ||
+      !getFileSize(PENDING_PATH, pendingBytes, false) ||
+      !countPendingReadings()) {
+    storageError("mid-file/corrupt pending record; queue preserved for repair");
     return;
   }
   storageReady = true;
   storageFull = pendingCount >= MAX_OFFLINE_RECORDS || pendingBytes >= effectiveMaxBytes;
-  Serial.printf("LittleFS recovered: %u records, %u bytes, limit %u bytes\n",
+  Serial.printf("LittleFS queue valid: %u records, %u bytes, limit %u bytes\n",
                 unsigned(pendingCount), unsigned(pendingBytes), unsigned(effectiveMaxBytes));
 }
 
@@ -377,6 +494,7 @@ void httpWorker(void*) {
             const char* status = doc["freshness"]["status"] | "";
             const char* responseId = doc["device_reading_id"] | "";
             const char* sentId = sent["device_reading_id"] | "";
+            result.duplicate = doc["duplicate"] == true;
             bool recognized = strcmp(status, "Fresh / Normal") == 0 ||
                               strcmp(status, "Use Soon") == 0 ||
                               strcmp(status, "Check Food") == 0;
@@ -405,6 +523,7 @@ void setStatusLED(const char* status) {
 }
 
 void handleBackendResponse(const PostResult& result) {
+  if (result.duplicate) Serial.println("DUPLICATE ACK");
   if (freshnessStatus != result.status) {
     freshnessStatus = result.status;
     statusChangedAt = millis();
@@ -460,6 +579,7 @@ void processRetryQueue() {
       --pendingCount;
       ++cycleSent;
       attempts = 0;
+      Serial.printf("QUEUE REMOVE remaining:%u\n", unsigned(pendingCount));
     } else {
       beginCompaction();
       return;
@@ -525,7 +645,8 @@ String getTimestamp() {
 }
 
 void maintainWiFi() {
-  bool connected = WiFi.status() == WL_CONNECTED;
+  wl_status_t wifiStatus = WiFi.status();
+  bool connected = wifiStatus == WL_CONNECTED;
   if (connected != wasWiFiConnected) {
     wasWiFiConnected = connected;
     if (connected) {
@@ -537,9 +658,13 @@ void maintainWiFi() {
     }
     else { backendOnline = false; Serial.println("WiFi disconnected"); }
   }
-  if (!connected && millis() - lastWiFiRetry >= WIFI_RETRY_MS) {
+  // Do not call reconnect() while the ESP32 is already attempting to connect.
+  // Calling it in WL_IDLE_STATUS produces the misleading:
+  // "wifi:sta is connecting, return error" message.
+  if (!connected && wifiStatus != WL_IDLE_STATUS &&
+      millis() - lastWiFiRetry >= WIFI_RETRY_MS) {
     lastWiFiRetry = millis();
-    Serial.println("WiFi reconnect attempt");
+    Serial.printf("WiFi reconnect attempt (status:%d)\n", static_cast<int>(wifiStatus));
     WiFi.reconnect();
   }
   if (connected && !ntpStarted) {
@@ -654,7 +779,15 @@ void maintainSensorRead() {
                 doorThresholdReported ? "THRESHOLD_REPORTED" : "NO");
   if (!captureReading || !ENABLE_BACKEND) return;
   if (!captureTimestamp.length()) {
-    Serial.println("TIME ERROR: no valid RTC/NTP time; new reading skipped");
+    if (!WiFi.isConnected() && !rtcDetected) {
+      Serial.println("TIME UNAVAILABLE: WiFi not connected and DS3231 not detected; reading skipped");
+    } else if (!WiFi.isConnected() && rtcDetected && rtc.lostPower()) {
+      Serial.println("TIME UNAVAILABLE: WiFi not connected and DS3231 lost power; reading skipped");
+    } else if (WiFi.isConnected() && !rtcSynced) {
+      Serial.println("TIME WAITING: WiFi connected, waiting for NTP; reading skipped");
+    } else {
+      Serial.println("TIME UNAVAILABLE: no valid RTC/NTP time; reading skipped");
+    }
     return;
   }
   if (deferredReading.length()) {

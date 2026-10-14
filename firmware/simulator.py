@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -144,6 +145,68 @@ def _create_auto_test_food(food_id):
         print(f"[AUTO TEST] food setup failed: HTTP {response.status_code}")
         return False
     return True
+
+
+def _create_status_demo_food(food_id):
+    today = datetime.now(SIMULATOR_TIMEZONE).date()
+    payload = {
+        "food_id": food_id,
+        "food_name": "FreshGuard Status Demo Food",
+        "category": "MEAT",
+        "quantity": 1,
+        "inserted_at": today.isoformat(),
+        "expiry_date": (today + timedelta(days=1)).isoformat(),
+        "storage_location": "STATUS_DEMO",
+    }
+    try:
+        response = requests.post(FOODS_API_URL, json=payload, timeout=5)
+    except requests.RequestException as error:
+        print(f"[STATUS DEMO] food setup failed: {type(error).__name__}")
+        return False
+    if response.status_code != 201:
+        print(f"[STATUS DEMO] food setup failed: HTTP {response.status_code}")
+        return False
+    return True
+
+
+def run_status_demo():
+    """Exercise real backend freshness transitions for device notifications."""
+    print("========================================")
+    print("FRESHGUARD STATUS DEMO")
+    print("========================================")
+    run_id = uuid.uuid4().hex
+    device_id = f"FG-STATUS-DEMO-{run_id[:12]}"
+    food_id = f"FG-STATUS-DEMO-FOOD-{run_id}"
+    if not _create_status_demo_food(food_id):
+        return False
+
+    scenarios = (
+        ("FRESH", "Fresh / Normal", False, 0, None),
+        ("USE SOON", "Use Soon", False, 0, food_id),
+        ("CHECK FOOD", "Check Food", True, DOOR_TIMEOUT_SECONDS, None),
+    )
+    state_machine = LedStateMachine()
+    passed = 0
+    for index, (name, expected, door_open, duration, scenario_food_id) in enumerate(scenarios, 1):
+        reading = create_reading_payload(door_open, duration)
+        reading["device_id"] = device_id
+        if scenario_food_id:
+            reading["food_id"] = scenario_food_id
+        response = send_reading(reading)
+        post_ok = is_acknowledged(response)
+        actual = None
+        if post_ok:
+            poll_latest_freshness(state_machine)
+            actual = state_machine.last_poll_status
+        scenario_passed = post_ok and actual == expected
+        print(f"[{index}/3] {name}: expected={expected} actual={actual or 'unavailable'} "
+              f"LED={state_machine.last_led_state} -> {'PASS' if scenario_passed else 'FAIL'}")
+        passed += int(scenario_passed)
+        # Give the existing TelegramNotificationWorker time to claim the
+        # committed outbox event when the backend is running normally.
+        time.sleep(2)
+    print(f"STATUS DEMO RESULT: {passed}/3 PASS")
+    return passed == 3
 
 
 def run_auto_test():
@@ -334,6 +397,60 @@ def load_pending_readings(queue_file=None):
             if payload is not None:
                 pending.append(payload)
     return pending
+
+
+def recover_pending_readings(queue_file=None):
+    """Recover only a final partial queue line, matching ESP32 boot policy."""
+    path = _resolve_queue_file(queue_file)
+    if not path.exists():
+        return 0
+
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    nonempty = [index for index, line in enumerate(lines) if line.strip()]
+    if not nonempty:
+        return 0
+
+    retained = []
+    recovered = 0
+    needs_rewrite = False
+    last_nonempty = nonempty[-1]
+    for index, line in enumerate(lines):
+        if not line.strip():
+            retained.append(line)
+            continue
+        payload = _decode_queue_line(line, index + 1)
+        if payload is None:
+            if index != last_nonempty:
+                raise ValueError(
+                    f"mid-file reading queue corruption at line {index + 1}"
+                )
+            print(
+                f"QUEUE RECOVERY: partial tail discarded after {recovered} records"
+            )
+            needs_rewrite = True
+            break
+        retained.append(line if line.endswith(("\n", "\r")) else line + "\n")
+        recovered += 1
+        if not line.endswith(("\n", "\r")):
+            needs_rewrite = True
+
+    if needs_rewrite:
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", newline="", dir=path.parent,
+                prefix=f"{path.name}.", suffix=".tmp", delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                temporary.writelines(retained)
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            os.replace(temporary_path, path)
+        finally:
+            if temporary_path is not None and temporary_path.exists():
+                temporary_path.unlink()
+        print(f"QUEUE RECOVERY COMPLETE: preserved {recovered} records")
+    return recovered
 
 
 def enqueue_reading(payload, queue_file=None):
@@ -560,6 +677,7 @@ def send_with_retry(payload, queue_file=None, sleep_fn=None):
 
 
 def process_pending_readings(queue_file=None, sleep_fn=None):
+    recover_pending_readings(queue_file)
     pending = load_pending_readings(queue_file)
     print(f"[QUEUE] pending_readings={len(pending)}")
     results = []
@@ -921,6 +1039,8 @@ def send_reading(payload):
 def main():
     if AUTO_TEST:
         return run_auto_test()
+    if "--status-demo" in sys.argv:
+        return run_status_demo()
 
     process_pending_readings()
     process_pending_events()

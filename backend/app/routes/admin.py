@@ -84,6 +84,15 @@ def admin_overview():
         latest_change = connection.execute(
             "SELECT changed_at FROM freshness_rule_audit ORDER BY id DESC LIMIT 1"
         ).fetchone()
+        gas_rules = get_freshness_rules(connection)
+        gas_baselines = connection.execute(
+            "SELECT s.device_id, s.food_id, COALESCE(l.baseline_status, "
+            "CASE WHEN s.baseline IS NOT NULL THEN 'READY' ELSE 'WARMING_UP' END) "
+            "AS baseline_status, s.baseline, s.baseline_sample_count, "
+            "s.anomaly_active FROM gas_anomaly_state s LEFT JOIN "
+            "gas_baseline_lifecycle l ON l.device_id = s.device_id "
+            "AND l.food_id = s.food_id ORDER BY s.device_id, s.food_id"
+        ).fetchall()
     finally:
         connection.close()
     return jsonify({
@@ -102,6 +111,21 @@ def admin_overview():
         },
         "foods": {"total": foods},
         "events": {"total": events},
+        "gas_baselines": [
+            {
+                "device_id": row["device_id"],
+                "food_id": row["food_id"] or None,
+                "status": row["baseline_status"],
+                "baseline": row["baseline"],
+                "threshold": (
+                    row["baseline"] * (1 + gas_rules.gas_anomaly_deviation_ratio)
+                    if row["baseline"] is not None else None
+                ),
+                "sample_count": row["baseline_sample_count"],
+                "anomaly_active": bool(row["anomaly_active"]),
+            }
+            for row in gas_baselines
+        ],
         "freshness_rules": {
             "total": len(RULE_KEYS),
             "editable": len(EDITABLE_RULE_KEYS),

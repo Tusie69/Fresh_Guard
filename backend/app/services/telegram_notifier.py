@@ -56,6 +56,38 @@ def build_message(payload):
     if not isinstance(payload, dict):
         raise TelegramDeliveryError("invalid notification payload")
     notification_type = payload.get("notification_type")
+    if notification_type == "FOOD_ADDED":
+        text = (
+            "\u2705 FreshGuard \u2014 Food Added\n\n"
+            f"Food: {str(payload.get('food_name') or payload.get('food_id') or 'Unknown food')[:256]}\n"
+            f"Code: {str(payload.get('food_id') or 'N/A')[:128]}\n"
+            f"Category: {str(payload.get('category') or 'N/A')[:128]}\n"
+            f"Quantity: {_display(payload, 'quantity')}\n"
+            f"Device: {str(payload.get('device_id') or 'Unknown device')[:256]}\n"
+            f"Added at: {str(payload.get('added_at') or 'Unknown time')[:128]}"
+        )
+        return text.encode("utf-16-le")[:8000].decode("utf-16-le", errors="ignore")
+    if notification_type in {
+        "DEVICE_FRESH", "DEVICE_USE_SOON", "DEVICE_CHECK_FOOD",
+    }:
+        titles = {
+            "DEVICE_FRESH": "\U0001f7e2 FreshGuard Status Changed",
+            "DEVICE_USE_SOON": "\U0001f7e1 FreshGuard Warning",
+            "DEVICE_CHECK_FOOD": "\U0001f534 FreshGuard Alert",
+        }
+        device = payload.get("device_id") or "Unknown device"
+        previous = payload.get("previous_status") or "Unknown / Initial"
+        current = payload.get("current_status") or "Unknown"
+        timestamp = payload.get("reading_timestamp") or "Unknown time"
+        text = (
+            f"{titles[notification_type]}\n\n"
+            f"Device: {str(device)[:256]}\n"
+            f"Previous: {str(previous)[:128]}\n"
+            f"Current: {str(current)[:128]}\n"
+            f"Temperature: {_display(payload, 'temperature_c')} C\n"
+            f"Measured at: {str(timestamp)[:128]}"
+        )
+        return text.encode("utf-16-le")[:8000].decode("utf-16-le", errors="ignore")
     food = payload.get("food_name") or payload.get("food_id") or "Unknown food"
     category = payload.get("category") or "Unknown"
     reason = payload.get("freshness_reason") or "No reason provided"
@@ -87,7 +119,7 @@ def build_message(payload):
         f"Gas: {_display(payload, 'gas_raw')}\n"
         f"Door: {door_text}\n"
         f"Device: {str(device)[:256]}\n"
-        f"Captured at: {str(timestamp)[:128]}\n"
+        f"Measured at: {str(timestamp)[:128]}\n"
         f"Reason: {str(reason)[:512]}"
     )
     # Plain text: no Markdown/HTML escaping needed. Bound UTF-16 length too.

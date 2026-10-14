@@ -141,7 +141,7 @@
                 <div class="page-title-subheading">Centralized management for device thresholds, sensor telemetry, tracked foods, and platform access.</div>
               </div>
             </div>
-            <div class="page-title-actions">
+            <div class="page-title-actions admin-live-polling">
               <span class="badge bg-light text-dark border p-2"><span class="pulse-dot me-1"></span> Live Polling: 2s</span>
             </div>
           </div>
@@ -1616,10 +1616,19 @@ $("btn-refresh-foods")?.addEventListener("click", loadFoods);
 $("food-search")?.addEventListener("input", renderFoodsTable);
 $("show-inactive-foods")?.addEventListener("change", renderFoodsTable);
 
+const foodCategoryButtonClasses = {
+  ALL: "btn-outline-dark",
+  MEAT: "btn-outline-danger",
+  DAIRY: "btn-outline-info",
+  VEGETABLE: "btn-outline-success",
+  FRUIT: "btn-outline-warning",
+  COOKED_FOOD: "btn-outline-primary"
+};
+
 document.querySelectorAll("#food-category-filters button").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll("#food-category-filters button").forEach(b => {
-      b.className = b.className.replace("btn-dark", "btn-outline-" + (b.dataset.cat === "ALL" ? "dark" : b.dataset.cat.toLowerCase()));
+      b.className = `btn btn-sm ${foodCategoryButtonClasses[b.dataset.cat]}`;
     });
     btn.className = "btn btn-sm btn-dark";
     state.activeCategoryFilter = btn.dataset.cat;

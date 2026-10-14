@@ -303,6 +303,63 @@ class _Response:
         return self.body
 
 
+def test_simulator_offline_restart_replays_readings_once_in_fifo(system, tmp_path, monkeypatch):
+    queue_file = tmp_path / "pending_readings.jsonl"
+    backend_online = {"value": True}
+    base = datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc)
+    readings = []
+    for index in range(4):
+        readings.append({
+            "device_id": "SIM-OFFLINE-DEVICE",
+            "device_reading_id": str(uuid.uuid4()),
+            "timestamp": (base + timedelta(minutes=index)).isoformat(),
+            "temperature_c": 5,
+            "humidity_pct": 60,
+            "gas_raw": 100,
+            "door_open": False,
+            "open_duration_seconds": 0,
+        })
+
+    def post_to_flask(_url, *, json, timeout):
+        if not backend_online["value"]:
+            raise simulator.requests.ConnectionError("backend offline")
+        response = system.post("/api/v1/readings", json=json)
+        return _Response(response.status_code, response.json)
+
+    monkeypatch.setattr(simulator.requests, "post", post_to_flask)
+
+    simulator.enqueue_reading(readings[0], queue_file)
+    simulator.process_pending_readings(queue_file, sleep_fn=lambda _delay: None)
+    assert simulator.load_pending_readings(queue_file) == []
+
+    backend_online["value"] = False
+    for reading in readings[1:]:
+        simulator.enqueue_reading(reading, queue_file)
+    simulator.process_pending_readings(queue_file, sleep_fn=lambda _delay: None)
+    assert simulator.load_pending_readings(queue_file) == readings[1:]
+
+    # A new simulator process reconstructs the durable backlog before retry.
+    assert [item["device_reading_id"] for item in simulator.load_pending_readings(queue_file)] == [
+        item["device_reading_id"] for item in readings[1:]
+    ]
+    backend_online["value"] = True
+    simulator.process_pending_readings(queue_file, sleep_fn=lambda _delay: None)
+
+    stored = rows(
+        system,
+        "SELECT device_reading_id, timestamp, received_at, ingest_status "
+        "FROM sensor_readings WHERE device_id = ? ORDER BY timestamp",
+        ("SIM-OFFLINE-DEVICE",),
+    )
+    assert [item["device_reading_id"] for item in stored] == [
+        item["device_reading_id"] for item in readings
+    ]
+    assert len(stored) == 4
+    assert all(item["received_at"] is not None for item in stored[1:])
+    assert all(item["ingest_status"] == "OFFLINE_RECOVERED" for item in stored[1:])
+    assert simulator.load_pending_readings(queue_file) == []
+
+
 def test_door_events_and_sensor_faults_coexist_through_event_queue(system, tmp_path, monkeypatch):
     queue_file = tmp_path / "pending_events.jsonl"
     producer = simulator.DoorEventProducer()

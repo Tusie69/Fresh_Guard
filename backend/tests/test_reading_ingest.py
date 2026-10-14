@@ -96,6 +96,32 @@ def test_timezone_equivalence(client):
         assert response.json["timestamp"] == timestamp
 
 
+def test_history_and_latest_follow_measured_at_when_offline_replay_arrives_late(client):
+    newer = payload(
+        timestamp="2026-09-29T01:19:00+07:00",
+        device_reading_id=str(uuid.uuid4()),
+    )
+    older = payload(
+        timestamp="2026-09-29T01:18:00+07:00",
+        device_reading_id=str(uuid.uuid4()),
+    )
+
+    # The newer live reading is committed first; the older offline reading is
+    # replayed later and therefore receives the larger SQLite id.
+    assert client.post("/api/v1/readings", json=newer).status_code == 201
+    assert client.post("/api/v1/readings", json=older).status_code == 201
+
+    history = client.get("/api/v1/readings?device_id=FG-ESP32-01&limit=2")
+    assert history.status_code == 200
+    assert [item["timestamp"] for item in history.json["data"]] == [
+        newer["timestamp"], older["timestamp"]
+    ]
+
+    latest = client.get("/api/v1/readings/latest?device_id=FG-ESP32-01")
+    assert latest.status_code == 200
+    assert latest.json["data"]["device_reading_id"] == newer["device_reading_id"]
+
+
 def test_duplicate_preserves_first_receipt_and_all_side_effects(client, monkeypatch, caplog):
     today = date.today().isoformat()
     assert client.post("/api/v1/foods", json={

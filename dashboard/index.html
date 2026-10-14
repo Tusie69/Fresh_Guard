@@ -771,7 +771,10 @@
         <p><strong>Category:</strong> <span id="qr-category-value"></span></p>
     </div>
     <form id="food-form" class="scanner-form" hidden>
+        <label>Food ID<input id="food-id-input" name="food_id" maxlength="128" required></label>
         <label>Food Name<input id="food-name-input" name="food_name" required maxlength="200"></label>
+        <label>Category<input id="food-category-input" name="category" maxlength="32" required></label>
+        <label>Device<input id="food-device-input" name="device_id" value="FG-ESP32-01" required maxlength="128"></label>
         <label>Stored At<input id="food-inserted-input" name="inserted_at" type="date" required></label>
         <label>Quantity<input id="food-quantity-input" name="quantity" type="number" min="0" step="any"></label>
         <label>Manufacture Date<input id="food-manufacture-input" name="manufacture_date" type="date"></label>
@@ -825,6 +828,12 @@
         if (status === "Use Soon")        return "badge-soon";
         if (status === "Check Food")       return "badge-check";
         return "badge-other";
+    }
+
+    function syncLabel(reading) {
+        return reading && (reading.ingest_status === "DELAYED" ||
+            reading.ingest_status === "OFFLINE_RECOVERED")
+            ? "Offline replay" : null;
     }
 
     function freshnessClass(status) {
@@ -997,7 +1006,16 @@
             var ts = rd.timestamp ? new Date(rd.timestamp) : null;
             var time = (ts && !isNaN(ts.getTime())) ? ts.toLocaleString("vi-VN") : UNAVAILABLE;
             var cell = function(v) { var c = document.createElement("td"); c.textContent = v === null || v === undefined || v === "" ? UNAVAILABLE : v; return c; };
-            row.appendChild(cell(time));
+            var timeCell = cell(time);
+            var replay = syncLabel(rd);
+            if (replay) {
+                var replayBadge = document.createElement("span");
+                replayBadge.className = "badge badge-other";
+                replayBadge.textContent = replay;
+                replayBadge.style.marginLeft = "6px";
+                timeCell.appendChild(replayBadge);
+            }
+            row.appendChild(timeCell);
             row.appendChild(cell(rd.food_id || UNAVAILABLE));
             var tCell = document.createElement("td");
             tCell.textContent = rd.temperature_c != null ? rd.temperature_c + " \u00b0C" : UNAVAILABLE;
@@ -1110,7 +1128,7 @@
             p.textContent = (food.category || "Category unavailable") + " / " + (food.freshness_status || "Waiting for Reading");
             p.className = "food-status " + (food.freshness_status === "Use Soon" ? "soon" : food.freshness_status === "Fresh / Normal" ? "fresh" : food.freshness_status === "Check Food" ? "check" : "");
             var p2 = document.createElement("p");
-            p2.textContent = food.expiry_date ? "Expires " + food.expiry_date : "Expiry date unavailable";
+            p2.textContent = (food.food_id || "Food code unavailable") + " / Device: " + (food.device_id || DASHBOARD_DEVICE_ID);
             info.appendChild(h3); info.appendChild(p); info.appendChild(p2);
             main.appendChild(icon); main.appendChild(info);
             var actions = document.createElement("div");
@@ -1252,12 +1270,13 @@
     /* â”€â”€ Foods in Fridge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function loadActiveFoods() {
         // Active registry membership is authoritative; freshness is optional enrichment.
-        fetch(API_BASE_URL + "/foods/active", { cache: "no-store" })
+        var activeQuery = "?device_id=" + encodeURIComponent(DASHBOARD_DEVICE_ID);
+        fetch(API_BASE_URL + "/foods/active" + activeQuery, { cache: "no-store" })
             .then(function(r) { return r.json(); })
             .then(function(result) {
                 if (!result.success) throw new Error();
                 renderActiveFoods(result.data || []);
-                return fetch(API_BASE_URL + "/foods/active/freshness", { cache: "no-store" })
+                return fetch(API_BASE_URL + "/foods/active/freshness" + activeQuery, { cache: "no-store" })
                     .then(function(r) { return r.json(); })
                     .then(function(enriched) {
                         if (!enriched.success) throw new Error();
@@ -1352,7 +1371,29 @@
         "FG-MEAT": "MEAT", "FG-DAIRY": "DAIRY",
         "FG-VEGETABLE": "VEGETABLE", "FG-FRUIT": "FRUIT", "FG-COOKED": "COOKED_FOOD"
     });
-    var qrStream = null, qrFrameRequest = null, qrCode = null, qrSubmitInProgress = false;
+    var QR_CATEGORIES = Object.freeze({
+        "MEAT": true, "DAIRY": true, "VEGETABLE": true,
+        "FRUIT": true, "COOKED_FOOD": true
+    });
+    var qrStream = null, qrFrameRequest = null, qrCode = null, qrParsed = null, qrSubmitInProgress = false;
+
+    function parseFoodQrValue(value) {
+        var raw = String(value || "").trim();
+        if (!raw) return null;
+        try {
+            var url = new URL(raw, window.location.href);
+            var foodId = url.searchParams.get("food_id");
+            var category = url.searchParams.get("category");
+            var isFreshGuardUrl = /\/add-food\/?$/i.test(url.pathname);
+            if (isFreshGuardUrl && (foodId || category) && QR_CATEGORIES[category]) {
+                return { food_id: foodId || "", category: category, qr_code: "" };
+            }
+        } catch (ignore) {}
+        if (QR_CATEGORY_MAP.hasOwnProperty(raw)) {
+            return { food_id: "", category: raw, qr_code: raw };
+        }
+        return null;
+    }
 
     function setQrStatus(msg, isErr) {
         var el = byId("qr-status");
@@ -1369,7 +1410,7 @@
 
     function resetQrDialog() {
         stopQrCamera();
-        qrCode = null; qrSubmitInProgress = false;
+        qrCode = null; qrParsed = null; qrSubmitInProgress = false;
         byId("qr-result").hidden = true;
         byId("food-form").hidden = true;
         byId("food-success").hidden = true;
@@ -1393,9 +1434,12 @@
 
     function showQrResult(value) {
         qrCode = value;
+        qrParsed = parseFoodQrValue(value);
         stopQrCamera();
         byId("qr-code-value").textContent = value;
-        byId("qr-category-value").textContent = QR_CATEGORY_MAP[value] || "Unknown";
+        byId("qr-category-value").textContent = (qrParsed && (QR_CATEGORY_MAP[qrParsed.category] || qrParsed.category)) || "Unknown";
+        byId("food-id-input").value = qrParsed ? qrParsed.food_id : "";
+        byId("food-category-input").value = qrParsed ? (QR_CATEGORY_MAP[qrParsed.category] || qrParsed.category) : "";
         byId("qr-result").hidden = false;
         byId("food-form").hidden = false;
         var localDate = new Date();
@@ -1416,7 +1460,8 @@
             var result = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "dontInvert" });
             if (result) {
                 var v = String(result.data || "").trim();
-                if (QR_CATEGORY_MAP.hasOwnProperty(v)) { showQrResult(v); return; }
+                var parsed = parseFoodQrValue(v);
+                if (parsed && (parsed.food_id || parsed.category)) { showQrResult(v); return; }
                 setQrStatus("Invalid FreshGuard QR code", true);
             }
         }
@@ -1454,10 +1499,13 @@
         byId("create-food").disabled = true;
         setQrStatus("Creating food...");
         var payload = {
-            qr_code: qrCode,
+            food_id: byId("food-id-input").value.trim(),
             food_name: byId("food-name-input").value.trim(),
+            category: byId("food-category-input").value.trim(),
+            device_id: byId("food-device-input").value.trim(),
             inserted_at: byId("food-inserted-input").value
         };
+        if (qrParsed && qrParsed.qr_code) payload.qr_code = qrParsed.qr_code;
         [["quantity", "food-quantity-input", true], ["manufacture_date", "food-manufacture-input", false],
          ["expiry_date", "food-expiry-input", false], ["storage_location", "food-location-input", false]]
             .forEach(function(item) {
@@ -1487,7 +1535,7 @@
                 activate.textContent = "Add to Fridge";
                 activate.addEventListener("click", function() {
                     activate.disabled = true;
-                    fetch(API_BASE_URL + "/foods/" + encodeURIComponent(food.food_id) + "/activate", { method: "POST" })
+                    fetch(API_BASE_URL + "/foods/" + encodeURIComponent(food.food_id) + "/activate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: byId("food-device-input").value.trim() }) })
                         .then(function(r) { return r.json(); })
                         .then(function(a) {
                             if (!a.success) throw new Error(a.message);
@@ -1507,6 +1555,15 @@
                 byId("create-food").disabled = false;
             })
             .then(function() { qrSubmitInProgress = false; });
+    }
+
+    function openFoodUrlIfPresent() {
+        var parsed = parseFoodQrValue(window.location.href);
+        if (!parsed || !parsed.food_id) return;
+        resetQrDialog();
+        byId("qr-dialog").showModal();
+        showQrResult(window.location.href);
+        setQrStatus("Food code loaded from QR URL. Enter food details.");
     }
 
     /* â”€â”€ Event listeners â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -1544,6 +1601,8 @@
     /* â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     loadDashboard();
     loadActiveFoods();
+    // Do not open the camera dialog automatically on dashboard startup.
+    // QR scanning is user-initiated through the "Scan QR" buttons.
     setInterval(loadDashboard, DASHBOARD_REFRESH_MS);
 })();
 </script>

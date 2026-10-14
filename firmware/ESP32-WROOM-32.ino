@@ -82,6 +82,7 @@ struct PostRequest { char payload[MAX_RECORD_BYTES]; };
 struct PostResult {
   int code;
   bool confirmed;
+  bool duplicate;
   char status[20];
   char reason[256];
 };
@@ -256,7 +257,7 @@ bool appendOfflineReading(const String& payload) {
   pendingBytes += bytes;
   ++pendingCount;
   storageFull = false;
-  Serial.printf("PERSISTED Q:%u %s\n", unsigned(pendingCount), payload.c_str());
+  Serial.printf("QUEUE ADD count:%u bytes:%u\n", unsigned(pendingCount), unsigned(pendingBytes));
   return true;
 }
 
@@ -360,6 +361,7 @@ void httpWorker(void*) {
             const char* status = doc["freshness"]["status"] | "";
             const char* responseId = doc["device_reading_id"] | "";
             const char* sentId = sent["device_reading_id"] | "";
+            result.duplicate = doc["duplicate"] == true;
             bool recognized = strcmp(status, "Fresh / Normal") == 0 ||
                               strcmp(status, "Use Soon") == 0 ||
                               strcmp(status, "Check Food") == 0;
@@ -444,6 +446,7 @@ void setStatusLED(const char* status) {
 }
 
 void handleBackendResponse(const PostResult& result) {
+  if (result.duplicate) Serial.println("DUPLICATE ACK");
   if (freshnessStatus != result.status) {
     freshnessStatus = result.status;
     statusChangedAt = millis();
@@ -493,6 +496,7 @@ void processRetryQueue() {
       --pendingCount;
       ++cycleSent;
       attempts = 0;
+      Serial.printf("QUEUE REMOVE remaining:%u\n", unsigned(pendingCount));
     } else {
       beginCompaction();
       return;

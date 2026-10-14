@@ -70,6 +70,35 @@ def test_encoder_defaults_duration_and_omits_absent_food_id(canonical_payload):
     assert "f" not in compact
 
 
+def test_partial_final_reading_tail_is_recovered_without_losing_prior_records(
+    canonical_payload, tmp_path, capsys
+):
+    queue_file = tmp_path / "pending_readings.jsonl"
+    first = deepcopy(canonical_payload)
+    second = deepcopy(canonical_payload)
+    second["device_reading_id"] = str(uuid.uuid4())
+    simulator.enqueue_reading(first, queue_file)
+    simulator.enqueue_reading(second, queue_file)
+    with queue_file.open("ab") as queue:
+        queue.write(b'{"device_reading_id":"partial')
+
+    assert simulator.recover_pending_readings(queue_file) == 2
+    assert simulator.load_pending_readings(queue_file) == [first, second]
+    assert "partial tail discarded" in capsys.readouterr().out
+
+
+def test_mid_file_reading_corruption_is_not_silently_dropped(canonical_payload, tmp_path):
+    queue_file = tmp_path / "pending_readings.jsonl"
+    queue_file.write_text(
+        json.dumps(canonical_payload) + "\nBROKEN LINE\n" +
+        json.dumps({**canonical_payload, "device_reading_id": str(uuid.uuid4())}) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="mid-file reading queue corruption"):
+        simulator.recover_pending_readings(queue_file)
+
+
 def test_send_reading_posts_compact_body_and_leaves_input_unchanged(
     canonical_payload, monkeypatch
 ):

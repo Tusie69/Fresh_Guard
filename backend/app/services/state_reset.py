@@ -20,7 +20,52 @@ def reset_gas_state(connection):
         "baseline = NULL, baseline_sample_count = 0, baseline_sum = 0, "
         "consecutive_anomaly_count = 0, anomaly_active = 0"
     )
+    _reset_gas_lifecycle(connection)
     return cursor.rowcount
+
+
+def reset_gas_state_for_device(connection, device_id):
+    """Reset only one device's gas contexts; history and events are untouched."""
+    cursor = connection.execute(
+        "UPDATE gas_anomaly_state SET "
+        "baseline = NULL, baseline_sample_count = 0, baseline_sum = 0, "
+        "consecutive_anomaly_count = 0, anomaly_active = 0" +
+        " WHERE device_id = ?",
+        (device_id,),
+    )
+    _reset_gas_lifecycle(connection, device_id)
+    return cursor.rowcount
+
+
+def _reset_gas_lifecycle(connection, device_id=None):
+    table = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'gas_baseline_lifecycle'"
+    ).fetchone()
+    if table is None:
+        return
+    if device_id is None:
+        connection.execute(
+            "INSERT OR IGNORE INTO gas_baseline_lifecycle "
+            "(device_id, food_id, baseline_status) "
+            "SELECT device_id, food_id, 'WARMING_UP' FROM gas_anomaly_state"
+        )
+        connection.execute(
+            "UPDATE gas_baseline_lifecycle SET baseline_status = 'WARMING_UP', "
+            "warmup_started_at = NULL, stability_values = '[]'"
+        )
+    else:
+        connection.execute(
+            "INSERT OR IGNORE INTO gas_baseline_lifecycle "
+            "(device_id, food_id, baseline_status) "
+            "SELECT device_id, food_id, 'WARMING_UP' FROM gas_anomaly_state "
+            "WHERE device_id = ?",
+            (device_id,),
+        )
+        connection.execute(
+            "UPDATE gas_baseline_lifecycle SET baseline_status = 'WARMING_UP', "
+            "warmup_started_at = NULL, stability_values = '[]' WHERE device_id = ?",
+            (device_id,),
+        )
 
 
 def reset_state_for_rule_keys(connection, changed_rule_keys):

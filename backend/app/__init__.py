@@ -36,6 +36,11 @@ def create_app():
     def dashboard():
         return send_from_directory(dashboard_dir, "index.html")
 
+    @app.get("/add-food")
+    def add_food_page():
+        # QR URLs open the same dashboard flow with food_id/category query params.
+        return send_from_directory(dashboard_dir, "index.html")
+
     @app.get("/admin")
     def admin_dashboard():
         return send_from_directory(dashboard_dir, "admin.html")

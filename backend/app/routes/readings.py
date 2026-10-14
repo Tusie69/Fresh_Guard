@@ -53,8 +53,19 @@ def log_reading_error(response):
 
 
 NOTIFICATION_TYPES = frozenset({
-    "FOOD_USE_SOON", "FOOD_CHECK_FOOD", "FOOD_RECOVERED",
+    "FOOD_USE_SOON", "FOOD_CHECK_FOOD", "FOOD_RECOVERED", "FOOD_ADDED",
+    "DEVICE_FRESH", "DEVICE_USE_SOON", "DEVICE_CHECK_FOOD",
 })
+
+
+def _device_notification_type(previous_status, current_status):
+    if previous_status == current_status:
+        return None
+    return {
+        "Fresh / Normal": "DEVICE_FRESH",
+        "Use Soon": "DEVICE_USE_SOON",
+        "Check Food": "DEVICE_CHECK_FOOD",
+    }.get(current_status)
 
 
 def _food_notification_type(previous_status, current_status):
@@ -245,7 +256,7 @@ def _normalize_device_reading_id(value):
 
 def _reading_payload_matches(row, payload):
     return all(
-        row[field] == value
+        (field == "food_id" and value is None) or row[field] == value
         for field, value in payload.items()
     )
 
@@ -292,6 +303,15 @@ def _food_dict(row):
     return dict(row)
 
 
+def _optional_device_id(data):
+    value = data.get("device_id")
+    if value is None:
+        return None, None
+    if not isinstance(value, str) or not value.strip():
+        return None, "device_id must be a non-empty string"
+    return value.strip(), None
+
+
 def _next_generated_food_id(connection):
     sequence = connection.execute(
         "SELECT seq FROM sqlite_sequence WHERE name = 'food_items'"
@@ -335,6 +355,10 @@ def create_food():
             "fields": missing_fields
         }, 400
 
+    device_id, error = _optional_device_id(data)
+    if error:
+        return {"success": False, "error": "INVALID_FIELD", "message": error}, 400
+
     string_fields = ["food_name"]
     if "food_id" in data:
         string_fields.append("food_id")
@@ -369,6 +393,9 @@ def create_food():
                 "field": "category",
             }, 400
         data["category"] = qr_category
+
+    if data.get("category") in QR_CATEGORY_MAPPING:
+        data["category"] = category_for_qr_code(data["category"])
 
     if not is_supported_category(data["category"]):
         return {
@@ -418,10 +445,10 @@ def create_food():
 
     connection = get_db_connection()
     try:
+        connection.execute("BEGIN IMMEDIATE")
         generated_food_id = "food_id" not in data
         if generated_food_id:
             # Reserve the SQLite AUTOINCREMENT value and food_id atomically.
-            connection.execute("BEGIN IMMEDIATE")
             row_id, food_id = _next_generated_food_id(connection)
             cursor = connection.execute(
                 """INSERT INTO food_items (
@@ -440,6 +467,7 @@ def create_food():
                 "SELECT 1 FROM food_items WHERE food_id = ?", (food_id,)
             ).fetchone()
             if duplicate:
+                connection.rollback()
                 return {
                     "success": False,
                     "error": "DUPLICATE_FOOD_ID",
@@ -456,6 +484,33 @@ def create_food():
                     parsed_dates["inserted_at"], parsed_dates["manufacture_date"],
                     parsed_dates["expiry_date"], storage_location,
                 ),
+            )
+        if device_id is not None:
+            activated_at = datetime.now(timezone.utc).isoformat()
+            existing_active = connection.execute(
+                "SELECT 1 FROM active_foods WHERE device_id = ? AND food_id = ?",
+                (device_id, food_id),
+            ).fetchone()
+            if existing_active is None:
+                connection.execute(
+                    """INSERT INTO active_foods (device_id, food_id, activated_at)
+                       VALUES (?, ?, ?)""",
+                    (device_id, food_id, activated_at),
+                )
+            created_at = datetime.now(timezone.utc).isoformat()
+            payload = {
+                "notification_type": "FOOD_ADDED",
+                "food_id": food_id,
+                "food_name": data["food_name"],
+                "category": data["category"],
+                "quantity": quantity,
+                "device_id": device_id,
+                "added_at": created_at,
+            }
+            _persist_food_notification(
+                connection,
+                f"food:{food_id}:device:{device_id}:added",
+                "FOOD_ADDED", None, None, payload, created_at,
             )
         connection.commit()
         row = connection.execute(
@@ -492,13 +547,17 @@ def get_foods():
 
 @readings_bp.get("/foods/active")
 def get_active_foods():
+    device_id = request.args.get("device_id")
     connection = get_db_connection()
     try:
+        where = "WHERE a.device_id = ?" if device_id else ""
+        params = (device_id,) if device_id else ()
         rows = connection.execute(
-            """SELECT f.*, a.activated_at
+            f"""SELECT f.*, a.activated_at, a.device_id
                FROM active_foods AS a
                JOIN food_items AS f ON f.food_id = a.food_id
-               ORDER BY a.activated_at, f.id"""
+               {where}
+               ORDER BY a.activated_at, f.id""", params
         ).fetchall()
         return {"success": True, "data": [_food_dict(row) for row in rows]}, 200
     finally:
@@ -507,10 +566,13 @@ def get_active_foods():
 
 @readings_bp.get("/foods/active/freshness")
 def get_active_food_freshness():
+    device_id = request.args.get("device_id")
     connection = get_db_connection()
     try:
+        where = "WHERE a.device_id = ?" if device_id else ""
+        params = (device_id,) if device_id else ()
         rows = connection.execute(
-            """WITH latest AS (
+            f"""WITH latest AS (
                    SELECT s.reading_id, s.food_id, s.freshness_status,
                           s.freshness_reason, s.evaluated_at,
                           r.timestamp AS reading_timestamp,
@@ -529,7 +591,9 @@ def get_active_food_freshness():
                JOIN food_items AS f ON f.food_id = a.food_id
                LEFT JOIN latest
                  ON latest.food_id = f.food_id AND latest.row_number = 1
+               {where}
                ORDER BY a.activated_at, f.id"""
+            , params
         ).fetchall()
         return {"success": True, "data": [_food_dict(row) for row in rows]}, 200
     finally:
@@ -573,18 +637,24 @@ def get_food_freshness_history(food_id):
         connection.close()
 
 
-def _get_food_with_active_state(connection, food_id):
+def _get_food_with_active_state(connection, food_id, device_id=None):
+    join = "a.food_id = f.food_id AND a.device_id = ?" if device_id else "a.food_id = f.food_id AND a.device_id IS NULL"
+    params = (device_id, food_id) if device_id else (food_id,)
     return connection.execute(
-        """SELECT f.*, a.activated_at
+        f"""SELECT f.*, a.activated_at, a.device_id
            FROM food_items AS f
-           LEFT JOIN active_foods AS a ON a.food_id = f.food_id
+           LEFT JOIN active_foods AS a ON {join}
            WHERE f.food_id = ?""",
-        (food_id,),
+        params,
     ).fetchone()
 
 
 @readings_bp.post("/foods/<food_id>/activate")
 def activate_food(food_id):
+    body = request.get_json(silent=True) or {}
+    device_id, error = _optional_device_id(body)
+    if error:
+        return {"success": False, "error": "INVALID_FIELD", "message": error}, 400
     connection = get_db_connection()
     try:
         food = connection.execute(
@@ -597,12 +667,28 @@ def activate_food(food_id):
                 "message": "Food item not found",
             }, 404
         activated_at = datetime.now(timezone.utc).isoformat()
-        connection.execute(
-            "INSERT OR IGNORE INTO active_foods (food_id, activated_at) VALUES (?, ?)",
-            (food_id, activated_at),
-        )
+        if device_id:
+            existing = connection.execute(
+                "SELECT 1 FROM active_foods WHERE device_id = ? AND food_id = ?",
+                (device_id, food_id),
+            ).fetchone()
+            if existing is None:
+                connection.execute(
+                    "INSERT INTO active_foods (device_id, food_id, activated_at) VALUES (?, ?, ?)",
+                    (device_id, food_id, activated_at),
+                )
+        else:
+            existing = connection.execute(
+                "SELECT 1 FROM active_foods WHERE device_id IS NULL AND food_id = ?",
+                (food_id,),
+            ).fetchone()
+            if existing is None:
+                connection.execute(
+                    "INSERT INTO active_foods (device_id, food_id, activated_at) VALUES (NULL, ?, ?)",
+                    (food_id, activated_at),
+                )
         connection.commit()
-        row = _get_food_with_active_state(connection, food_id)
+        row = _get_food_with_active_state(connection, food_id, device_id)
         return {"success": True, "active": True, "food": _food_dict(row)}, 200
     finally:
         connection.close()
@@ -610,6 +696,10 @@ def activate_food(food_id):
 
 @readings_bp.post("/foods/<food_id>/deactivate")
 def deactivate_food(food_id):
+    body = request.get_json(silent=True) or {}
+    device_id, error = _optional_device_id(body)
+    if error:
+        return {"success": False, "error": "INVALID_FIELD", "message": error}, 400
     connection = get_db_connection()
     try:
         food = connection.execute(
@@ -621,9 +711,15 @@ def deactivate_food(food_id):
                 "error": "FOOD_NOT_FOUND",
                 "message": "Food item not found",
             }, 404
-        connection.execute("DELETE FROM active_foods WHERE food_id = ?", (food_id,))
+        if device_id:
+            connection.execute(
+                "DELETE FROM active_foods WHERE food_id = ? AND device_id = ?",
+                (food_id, device_id),
+            )
+        else:
+            connection.execute("DELETE FROM active_foods WHERE food_id = ?", (food_id,))
         connection.commit()
-        row = _get_food_with_active_state(connection, food_id)
+        row = _get_food_with_active_state(connection, food_id, device_id)
         return {"success": True, "active": False, "food": _food_dict(row)}, 200
     finally:
         connection.close()
@@ -833,8 +929,20 @@ def create_reading():
                       f.expiry_date
                FROM active_foods AS a
                JOIN food_items AS f ON f.food_id = a.food_id
-               ORDER BY a.activated_at, f.id"""
+               WHERE a.device_id = ?
+                  OR (a.device_id IS NULL AND NOT EXISTS (
+                         SELECT 1 FROM active_foods AS scoped
+                         WHERE scoped.device_id = ?
+                     ))
+               ORDER BY a.activated_at, f.id""",
+            (data["device_id"], data["device_id"]),
         ).fetchall()
+        previous_device_snapshot = None
+        if not active_foods:
+            previous_device_snapshot = connection.execute(
+                "SELECT freshness_status FROM device_freshness_snapshots WHERE device_id = ?",
+                (data["device_id"],),
+            ).fetchone()
         if active_foods:
             food_contexts = active_foods
         elif food is not None:
@@ -853,6 +961,7 @@ def create_reading():
                 "inserted_at": None,
                 "expiry_date": None,
             }]
+        resolved_food_id = active_foods[0]["food_id"] if active_foods else food_id
 
         evaluations = []
         if not active_foods:
@@ -880,7 +989,7 @@ def create_reading():
             )
             gas_anomaly_active = update_gas_anomaly_state(
                 connection, data["device_id"], context_food_id,
-                data["gas_raw"], rules
+                data["gas_raw"], rules, data["timestamp"]
             )
             sensor_fault_transitions = update_sensor_fault_states(
                 connection, data["device_id"], context_food_id,
@@ -945,7 +1054,7 @@ def create_reading():
             (
                 data["device_id"], data["timestamp"], data["temperature_c"],
                 data["humidity_pct"], data["gas_raw"], int(data["door_open"]),
-                open_duration_seconds, food_id, device_reading_id,
+                open_duration_seconds, resolved_food_id, device_reading_id,
                 freshness_status, freshness_reason, freshness_evaluated_at,
                 int(any(item["gas_anomaly_active"] for item in evaluations)),
                 ingest["received_at"], ingest["delivery_delay_seconds"], ingest["ingest_status"],
@@ -1020,6 +1129,45 @@ def create_reading():
                         "status_unchanged" if previous_status == current_status else "policy",
                         data["device_id"], device_reading_id, context_food_id, current_status,
                     )
+        if not active_foods:
+            previous_status = (
+                previous_device_snapshot["freshness_status"]
+                if previous_device_snapshot is not None else None
+            )
+            device_notification_type = _device_notification_type(
+                previous_status, freshness_status,
+            )
+            if device_notification_type is not None:
+                event_key = (
+                    f"device:{data['device_id']}:reading:{reading_id}:"
+                    f"{device_notification_type}"
+                )
+                payload = {
+                    "notification_type": device_notification_type,
+                    "previous_status": previous_status or "Unknown / Initial",
+                    "current_status": freshness_status,
+                    "freshness_reason": freshness_reason,
+                    "device_id": data["device_id"],
+                    "reading_id": reading_id,
+                    "reading_timestamp": data["timestamp"],
+                    "device_reading_id": device_reading_id,
+                    "temperature_c": data["temperature_c"],
+                    "humidity_pct": data["humidity_pct"],
+                    "gas_raw": data["gas_raw"],
+                    "door_open": data["door_open"],
+                }
+                _persist_food_notification(
+                    connection, event_key, device_notification_type,
+                    None, reading_id, payload, freshness_evaluated_at,
+                )
+            connection.execute(
+                """INSERT INTO device_freshness_snapshots
+                   (device_id, freshness_status, updated_at) VALUES (?, ?, ?)
+                   ON CONFLICT(device_id) DO UPDATE SET
+                     freshness_status=excluded.freshness_status,
+                     updated_at=excluded.updated_at""",
+                (data["device_id"], freshness_status, freshness_evaluated_at),
+            )
         connection.commit()
         stored = connection.execute(
             "SELECT * FROM sensor_readings WHERE id = ?", (reading_id,)
@@ -1084,7 +1232,9 @@ def get_latest_reading():
             FROM sensor_readings AS r
             LEFT JOIN food_items AS f ON f.food_id = r.food_id
             WHERE (? IS NULL OR r.device_id = ?)
-            ORDER BY r.id DESC
+            -- Normalize ISO offsets before ordering: realtime may use Z while
+            -- compact replay may use +07:00 for the same measured timeline.
+            ORDER BY datetime(r.timestamp) DESC, r.id DESC
             LIMIT 1
             """,
             (device_id, device_id)
@@ -1171,7 +1321,9 @@ def get_readings():
             FROM sensor_readings AS r
             LEFT JOIN food_items AS f ON f.food_id = r.food_id
             WHERE (? IS NULL OR r.device_id = ?)
-            ORDER BY r.id DESC
+            -- Keep the API timeline based on normalized measured time. The id
+            -- tie-breaker makes equal timestamps deterministic.
+            ORDER BY datetime(r.timestamp) DESC, r.id DESC
             LIMIT ?
             """,
             (device_id, device_id, limit)

@@ -248,6 +248,7 @@ body.admin-dashboard { background:#F7F4EC; color:#17201C; font-size:13px; }
 .page-title-heading { color:#123D31 !important; font-weight:800; }
 .page-title-subheading { color:#68716B !important; font-size:12px; }
 .page-title-actions .badge { background:#E4F1E4 !important; border-color:#C5DCC5 !important; color:#284F34 !important; }
+.admin-live-polling { margin-right:.5cm; }
 .card, .main-card { background:#FFFEFB !important; border:1px solid #DDD8CD !important; border-radius:7px !important; box-shadow:0 1px 3px rgba(50,45,35,.08) !important; }
 .card-header, .card-footer { background:#F5F2EA !important; border-color:#DDD8CD !important; color:#123D31; }
 .card-title, .widget-heading { color:#17201C; font-weight:750; }

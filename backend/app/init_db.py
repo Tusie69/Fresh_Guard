@@ -62,6 +62,14 @@ def init_db():
         "idx_sensor_readings_device_reading_id "
         "ON sensor_readings (device_id, device_reading_id)"
     )
+    # A few very old databases contain only the original id/device_id pair.
+    # Keep init_db backward-compatible for those schemas; the normal schema
+    # always has timestamp and receives the timeline index.
+    if "timestamp" in reading_columns:
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sensor_readings_device_timestamp "
+            "ON sensor_readings (device_id, timestamp DESC, id DESC)"
+        )
 
     connection.execute("""
         CREATE TABLE IF NOT EXISTS food_items (
@@ -91,13 +99,55 @@ def init_db():
         )
     """)
 
+    # Keep the original state table shape compatible with older tooling that
+    # inserts its seven legacy columns positionally. Lifecycle metadata lives
+    # in a side table so migration never changes historical state semantics.
     connection.execute("""
-        CREATE TABLE IF NOT EXISTS active_foods (
-            food_id TEXT PRIMARY KEY,
-            activated_at TEXT NOT NULL,
-            FOREIGN KEY (food_id) REFERENCES food_items(food_id)
+        CREATE TABLE IF NOT EXISTS gas_baseline_lifecycle (
+            device_id TEXT NOT NULL,
+            food_id TEXT NOT NULL DEFAULT '',
+            baseline_status TEXT NOT NULL DEFAULT 'WARMING_UP',
+            warmup_started_at TEXT NULL,
+            stability_values TEXT NOT NULL DEFAULT '[]',
+            PRIMARY KEY (device_id, food_id)
         )
     """)
+
+    active_table = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='active_foods'"
+    ).fetchone()
+    active_columns = (
+        {row[1] for row in connection.execute("PRAGMA table_info(active_foods)")}
+        if active_table else set()
+    )
+    if active_table and "device_id" not in active_columns:
+        # Preserve legacy global activations as device-less compatibility rows.
+        connection.execute("ALTER TABLE active_foods RENAME TO active_foods_legacy")
+        active_table = None
+    if not active_table:
+        connection.execute("""
+            CREATE TABLE active_foods (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id TEXT NULL,
+                food_id TEXT NOT NULL,
+                activated_at TEXT NOT NULL,
+                FOREIGN KEY (food_id) REFERENCES food_items(food_id)
+            )
+        """)
+        if active_columns:
+            connection.execute("""
+                INSERT INTO active_foods (device_id, food_id, activated_at)
+                SELECT NULL, food_id, activated_at FROM active_foods_legacy
+            """)
+            connection.execute("DROP TABLE active_foods_legacy")
+    # A device can monitor multiple foods in the same fridge. Older versions
+    # used a partial UNIQUE index here, which made adding a new food replace
+    # the previous active mapping. Migrate that index to a normal lookup index.
+    connection.execute("DROP INDEX IF EXISTS idx_active_foods_device")
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_active_foods_device "
+        "ON active_foods(device_id)"
+    )
 
     connection.execute("""
         CREATE TABLE IF NOT EXISTS food_freshness_snapshots (
@@ -118,7 +168,10 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             event_key TEXT NOT NULL UNIQUE,
             notification_type TEXT NOT NULL CHECK (
-                notification_type IN ('FOOD_USE_SOON', 'FOOD_CHECK_FOOD', 'FOOD_RECOVERED')
+                notification_type IN (
+                    'FOOD_USE_SOON', 'FOOD_CHECK_FOOD', 'FOOD_RECOVERED', 'FOOD_ADDED',
+                    'DEVICE_FRESH', 'DEVICE_USE_SOON', 'DEVICE_CHECK_FOOD'
+                )
             ),
             food_id TEXT NULL,
             reading_id INTEGER NULL,
@@ -143,6 +196,60 @@ def init_db():
     for column in ("claim_token", "lease_until"):
         if column not in outbox_columns:
             connection.execute(f"ALTER TABLE notification_outbox ADD COLUMN {column} TEXT NULL")
+
+    # SQLite cannot alter a CHECK constraint in place. Rebuild only legacy
+    # outboxes that predate device-level notification types, preserving rows.
+    outbox_sql = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='notification_outbox'"
+    ).fetchone()[0] or ""
+    if "DEVICE_FRESH" not in outbox_sql or "FOOD_ADDED" not in outbox_sql:
+        connection.execute("ALTER TABLE notification_outbox RENAME TO notification_outbox_legacy")
+        connection.execute("""
+            CREATE TABLE notification_outbox (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT NOT NULL UNIQUE,
+                notification_type TEXT NOT NULL CHECK (
+                    notification_type IN (
+                        'FOOD_USE_SOON', 'FOOD_CHECK_FOOD', 'FOOD_RECOVERED', 'FOOD_ADDED',
+                        'DEVICE_FRESH', 'DEVICE_USE_SOON', 'DEVICE_CHECK_FOOD'
+                    )
+                ),
+                food_id TEXT NULL,
+                reading_id INTEGER NULL,
+                payload_json TEXT NOT NULL,
+                delivery_status TEXT NOT NULL DEFAULT 'PENDING' CHECK (
+                    delivery_status IN ('PENDING', 'DELIVERED', 'FAILED')
+                ),
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT NULL,
+                created_at TEXT NOT NULL,
+                delivered_at TEXT NULL,
+                claim_token TEXT NULL,
+                lease_until TEXT NULL,
+                FOREIGN KEY (reading_id) REFERENCES sensor_readings(id),
+                FOREIGN KEY (food_id) REFERENCES food_items(food_id)
+            )
+        """)
+        connection.execute("""
+            INSERT INTO notification_outbox (
+                id, event_key, notification_type, food_id, reading_id,
+                payload_json, delivery_status, attempt_count, last_error,
+                created_at, delivered_at, claim_token, lease_until
+            )
+            SELECT id, event_key, notification_type, food_id, reading_id,
+                   payload_json, delivery_status, attempt_count, last_error,
+                   created_at, delivered_at, claim_token, lease_until
+            FROM notification_outbox_legacy
+        """)
+        connection.execute("DROP TABLE notification_outbox_legacy")
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS device_freshness_snapshots (
+            device_id TEXT PRIMARY KEY,
+            freshness_status TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
 
     connection.execute("""
         CREATE TABLE IF NOT EXISTS temperature_exposure_state (
